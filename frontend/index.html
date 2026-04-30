@@ -1,0 +1,2785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>医影智诊 · 医疗影像AI分析平台</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
+  <style>
+    /* ===== CSS 变量 ===== */
+    :root {
+      --primary: #1a6fa8;
+      --primary-light: #2196f3;
+      --primary-dark: #0d4d7a;
+      --accent: #00bcd4;
+      --success: #4caf50;
+      --warning: #ff9800;
+      --danger: #f44336;
+      --bg-dark: #0a0e1a;
+      --bg-card: #0f1629;
+      --bg-panel: #141d35;
+      --bg-hover: #1a2540;
+      --text-primary: #e8f0fe;
+      --text-secondary: #8899bb;
+      --text-muted: #556688;
+      --border: #1e2d50;
+      --border-light: #2a3d65;
+      --glow: rgba(33, 150, 243, 0.15);
+      --glow-strong: rgba(33, 150, 243, 0.4);
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    /* ===== 全局重置 ===== */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== 滚动条 ===== */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-dark); }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+    /* ===== 顶部导航 ===== */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px; height: 64px;
+      background: rgba(10, 14, 26, 0.95);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+    }
+    .navbar-brand {
+      display: flex; align-items: center; gap: 12px;
+      text-decoration: none;
+    }
+    .navbar-logo {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .navbar-title { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+    .navbar-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+    .navbar-nav { display: none; gap: 4px; }
+    .nav-btn {
+      padding: 8px 16px; border-radius: var(--radius-sm);
+      background: transparent; border: none;
+      color: var(--text-secondary); font-size: 14px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .nav-btn:hover, .nav-btn.active {
+      background: var(--bg-hover); color: var(--text-primary);
+    }
+    .nav-btn.active { color: var(--primary-light); }
+    .navbar-right { display: flex; align-items: center; gap: 12px; }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 6px var(--success);
+    }
+    .status-text { font-size: 12px; color: var(--text-secondary); }
+
+    /* ===== 主布局 ===== */
+    .main-container {
+      margin-top: 64px;
+      min-height: calc(100vh - 64px);
+      display: flex;
+    }
+
+    /* ===== 侧边栏 ===== */
+    .sidebar {
+      width: 232px; flex-shrink: 0;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      padding: 18px 14px;
+      overflow-y: auto;
+      position: fixed; left: 0; top: 64px; bottom: 0;
+    }
+    .sidebar-section { margin-bottom: 20px; }
+    .sidebar-label {
+      font-size: 11px; font-weight: 600;
+      color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.6px; padding: 0 8px; margin-bottom: 8px;
+    }
+    .sidebar-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all 0.2s;
+      color: var(--text-secondary); font-size: 14px;
+    }
+    .sidebar-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .sidebar-item.active {
+      background: var(--glow); color: var(--primary-light);
+      border-left: 3px solid var(--primary-light);
+    }
+    .sidebar-item .icon { font-size: 16px; width: 20px; text-align: center; }
+    .sidebar-badge {
+      margin-left: auto; padding: 2px 6px;
+      background: var(--primary); color: white;
+      border-radius: 10px; font-size: 10px;
+    }
+
+    /* ===== 内容区域 ===== */
+    .content {
+      margin-left: 232px;
+      flex: 1; padding: 28px 32px;
+      min-height: calc(100vh - 64px);
+    }
+
+    /* ===== 页面切换 ===== */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ===== 统计卡片 ===== */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: all 0.3s;
+      position: relative; overflow: hidden;
+    }
+    .stat-card::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+    }
+    .stat-card.blue::before { background: linear-gradient(90deg, var(--primary), var(--accent)); }
+    .stat-card.green::before { background: linear-gradient(90deg, var(--success), #8bc34a); }
+    .stat-card.orange::before { background: linear-gradient(90deg, var(--warning), #ffb74d); }
+    .stat-card.red::before { background: linear-gradient(90deg, var(--danger), #e57373); }
+    .stat-card:hover { border-color: var(--border-light); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .stat-icon { font-size: 28px; margin-bottom: 12px; }
+    .stat-value { font-size: 32px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+    .stat-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+    .stat-change { font-size: 11px; color: var(--success); margin-top: 6px; }
+
+    /* ===== 上传区域 ===== */
+    .upload-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px; margin-bottom: 24px;
+    }
+    .upload-title {
+      font-size: 18px; font-weight: 600; color: var(--text-primary);
+      margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+    }
+    .upload-drop-zone {
+      border: 2px dashed var(--border-light);
+      border-radius: var(--radius);
+      padding: 48px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+    .upload-drop-zone:hover, .upload-drop-zone.drag-over {
+      border-color: var(--primary-light);
+      background: var(--glow);
+    }
+    .upload-icon { font-size: 48px; margin-bottom: 16px; }
+    .upload-text { font-size: 18px; color: var(--text-primary); margin-bottom: 8px; }
+    .upload-hint { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+    .upload-formats {
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+    }
+    .format-badge {
+      padding: 4px 10px; border-radius: 20px;
+      background: var(--bg-panel); border: 1px solid var(--border-light);
+      font-size: 11px; color: var(--text-secondary);
+    }
+    #fileInput { display: none; }
+
+    /* ===== 分析选项 ===== */
+    .analysis-options {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px;
+    }
+    .option-group { }
+    .option-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+    .option-select {
+      width: 100%; padding: 10px 12px;
+      background: var(--bg-panel); border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm); color: var(--text-primary);
+      font-size: 14px; cursor: pointer; outline: none;
+    }
+    .option-select:focus { border-color: var(--primary-light); }
+    .sensitivity-slider { width: 100%; margin-top: 4px; }
+    input[type="range"] {
+      -webkit-appearance: none; width: 100%; height: 4px;
+      background: var(--border-light); border-radius: 2px; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px;
+      background: var(--primary-light); border-radius: 50%; cursor: pointer;
+      box-shadow: 0 0 6px var(--glow-strong);
+    }
+    .sensitivity-val { text-align: right; font-size: 12px; color: var(--accent); margin-top: 4px; }
+
+    /* ===== 按钮 ===== */
+    .btn {
+      padding: 10px 20px; border-radius: var(--radius-sm);
+      border: none; cursor: pointer; font-size: 14px; font-weight: 500;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white; box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 20px rgba(33, 150, 243, 0.5); transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-secondary {
+      background: var(--bg-panel); border: 1px solid var(--border-light);
+      color: var(--text-secondary);
+    }
+    .btn-secondary:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .btn-accent {
+      background: linear-gradient(135deg, #006064, var(--accent));
+      color: white;
+    }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-lg { padding: 14px 28px; font-size: 16px; }
+
+    .actions-bar {
+      display: flex; gap: 12px; margin-top: 20px; align-items: center; flex-wrap: wrap;
+    }
+
+    /* ===== 进度/加载 ===== */
+    .progress-container {
+      display: none; margin-top: 20px;
+    }
+    .progress-container.visible { display: block; }
+    .progress-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+    .progress-bar-wrap {
+      height: 6px; background: var(--border);
+      border-radius: 3px; overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%; width: 0;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      border-radius: 3px; transition: width 0.3s;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: -200px 0; }
+      100% { background-position: 200px 0; }
+    }
+    .progress-steps {
+      display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+    }
+    .progress-step {
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 11px; background: var(--bg-panel);
+      border: 1px solid var(--border); color: var(--text-muted);
+      transition: all 0.3s;
+    }
+    .progress-step.active { border-color: var(--accent); color: var(--accent); }
+    .progress-step.done { border-color: var(--success); color: var(--success); }
+
+    /* ===== 分析结果 ===== */
+    .result-section {
+      display: none; animation: fadeInUp 0.5s ease;
+    }
+    .result-section.visible { display: block; }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .result-grid {
+      display: grid; grid-template-columns: 340px 1fr; gap: 20px;
+    }
+    .result-image-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+    }
+    .result-image-title { font-size: 14px; color: var(--text-secondary); margin-bottom: 12px; }
+    .result-view-tabs {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+      margin-bottom: 12px;
+    }
+    .result-view-tab {
+      min-height: 34px; border-radius: var(--radius-sm);
+      background: var(--bg-panel); border: 1px solid var(--border);
+      color: var(--text-secondary); font-size: 12px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .result-view-tab:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .result-view-tab.active {
+      border-color: var(--primary-light);
+      color: var(--primary-light);
+      background: rgba(33, 150, 243, 0.12);
+    }
+    .result-view-tab:disabled {
+      opacity: 0.42; cursor: not-allowed;
+    }
+    .result-view-caption {
+      margin-top: 8px; min-height: 18px;
+      color: var(--text-muted); font-size: 11px; text-align: center;
+    }
+    .medical-image-viewer {
+      background: #000; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      min-height: 280px; position: relative; overflow: hidden;
+    }
+    .medical-image-viewer img {
+      max-width: 100%; max-height: 340px;
+      filter: contrast(1.1) brightness(0.95);
+    }
+    .image-placeholder {
+      text-align: center; color: var(--text-muted);
+    }
+    .image-placeholder .ph-icon { font-size: 48px; margin-bottom: 12px; }
+    .image-toolbar {
+      display: flex; gap: 8px; margin-top: 12px; justify-content: center;
+    }
+    .image-tool {
+      padding: 6px 10px; border-radius: var(--radius-sm);
+      background: var(--bg-panel); border: 1px solid var(--border);
+      color: var(--text-secondary); font-size: 12px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .image-tool:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .image-meta {
+      margin-top: 12px; padding: 10px;
+      background: var(--bg-panel); border-radius: var(--radius-sm);
+      font-size: 11px;
+    }
+    .meta-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .meta-key { color: var(--text-muted); }
+    .meta-val { color: var(--text-secondary); }
+
+    /* ===== 分析报告面板 ===== */
+    .result-report-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .risk-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 20px;
+      font-size: 13px; font-weight: 600;
+    }
+    .risk-low { background: rgba(76, 175, 80, 0.15); color: #66bb6a; border: 1px solid #66bb6a44; }
+    .risk-medium { background: rgba(255, 152, 0, 0.15); color: #ffa726; border: 1px solid #ffa72644; }
+    .risk-high { background: rgba(244, 67, 54, 0.15); color: #ef5350; border: 1px solid #ef535044; }
+
+    .findings-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+    }
+    .finding-item {
+      padding: 12px; border-radius: var(--radius-sm);
+      background: var(--bg-panel); border: 1px solid var(--border);
+    }
+    .finding-item.abnormal {
+      border-color: rgba(255, 152, 0, 0.3);
+      background: rgba(255, 152, 0, 0.05);
+    }
+    .finding-name { font-size: 13px; color: var(--text-primary); margin-bottom: 4px; }
+    .finding-detail { font-size: 11px; color: var(--text-muted); }
+
+    .ai-report-box {
+      background: var(--bg-panel); border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm); padding: 16px;
+      max-height: 320px; overflow-y: auto;
+    }
+    .ai-report-text {
+      font-size: 12px; color: var(--text-secondary);
+      white-space: pre-wrap; line-height: 1.8;
+      font-family: 'Consolas', 'Courier New', monospace;
+    }
+
+    /* ===== 历史记录 ===== */
+    .history-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .history-title { font-size: 20px; font-weight: 600; }
+    .history-filters { display: flex; gap: 8px; }
+    .filter-btn {
+      padding: 6px 14px; border-radius: 20px;
+      background: var(--bg-panel); border: 1px solid var(--border);
+      color: var(--text-secondary); font-size: 12px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-btn.active {
+      background: var(--primary); border-color: var(--primary);
+      color: white;
+    }
+
+    .history-table-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .history-table { width: 100%; border-collapse: collapse; }
+    .history-table th {
+      padding: 14px 16px; text-align: left;
+      font-size: 11px; font-weight: 600;
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+      background: var(--bg-panel); border-bottom: 1px solid var(--border);
+    }
+    .history-table td {
+      padding: 14px 16px; font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-table tr:hover td { background: var(--bg-hover); }
+    .history-thumbnail {
+      width: 48px; height: 48px; border-radius: 6px;
+      object-fit: cover; background: #000;
+    }
+    .thumb-placeholder {
+      width: 48px; height: 48px; border-radius: 6px;
+      background: var(--bg-panel); display: flex; align-items: center;
+      justify-content: center; font-size: 18px;
+    }
+    .table-badge {
+      padding: 3px 8px; border-radius: 10px;
+      font-size: 11px; font-weight: 500;
+    }
+    .badge-normal { background: rgba(76,175,80,0.15); color: #66bb6a; }
+    .badge-finding { background: rgba(255,152,0,0.15); color: #ffa726; }
+    .badge-dcm { background: rgba(33,150,243,0.15); color: #64b5f6; }
+    .table-actions { display: flex; gap: 6px; }
+
+    /* ===== 空状态 ===== */
+    .empty-state {
+      text-align: center; padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-icon { font-size: 56px; margin-bottom: 16px; }
+    .empty-title { font-size: 18px; color: var(--text-secondary); margin-bottom: 8px; }
+    .empty-desc { font-size: 14px; }
+
+    /* ===== 统计页面 ===== */
+    .charts-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 24px;
+    }
+    .chart-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+    }
+    .chart-title { font-size: 15px; font-weight: 600; margin-bottom: 20px; }
+    .donut-chart { position: relative; width: 160px; height: 160px; margin: 0 auto 16px; }
+    .donut-svg { width: 100%; height: 100%; }
+    .donut-center {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .donut-val { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+    .donut-lbl { font-size: 11px; color: var(--text-muted); }
+    .chart-legend { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    .bar-chart { margin-top: 16px; }
+    .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .bar-label { font-size: 12px; color: var(--text-muted); width: 60px; text-align: right; }
+    .bar-track { flex: 1; height: 24px; background: var(--bg-panel); border-radius: 4px; overflow: hidden; }
+    .bar-fill {
+      height: 100%; border-radius: 4px;
+      display: flex; align-items: center; padding-left: 8px;
+      font-size: 11px; color: white; font-weight: 500;
+      transition: width 1s ease;
+    }
+    .bar-chest { background: linear-gradient(90deg, var(--primary), var(--accent)); }
+    .bar-brain { background: linear-gradient(90deg, #7b1fa2, #ce93d8); }
+    .bar-abdomen { background: linear-gradient(90deg, var(--success), #a5d6a7); }
+
+    /* ===== Toast 通知 ===== */
+    .toast-container {
+      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      padding: 12px 20px; border-radius: var(--radius-sm);
+      color: white; font-size: 13px;
+      animation: slideIn 0.3s ease;
+      display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      min-width: 280px;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .toast-success { background: #2e7d32; }
+    .toast-error { background: #c62828; }
+    .toast-info { background: #1565c0; }
+    .toast-warning { background: #e65100; }
+
+    /* ===== 模态框 ===== */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 2000;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--bg-card); border: 1px solid var(--border-light);
+      border-radius: var(--radius); width: 90%; max-width: 820px;
+      max-height: 85vh; overflow-y: auto;
+      animation: modalIn 0.3s ease;
+    }
+    @keyframes modalIn {
+      from { transform: scale(0.9); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .modal-header {
+      padding: 20px 24px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-title { font-size: 18px; font-weight: 600; }
+    .modal-close {
+      width: 32px; height: 32px; border-radius: 6px;
+      background: var(--bg-panel); border: 1px solid var(--border);
+      color: var(--text-secondary); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; transition: all 0.2s;
+    }
+    .modal-close:hover { background: var(--danger); color: white; border-color: var(--danger); }
+    .modal-body { padding: 24px; }
+
+    .fit-modal { max-width: 1040px; }
+    .fit-summary-grid {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+      margin-bottom: 16px;
+    }
+    .fit-metric {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px;
+      min-height: 82px;
+    }
+    .fit-metric-label { color: var(--text-muted); font-size: 11px; margin-bottom: 8px; }
+    .fit-metric-value { color: var(--text-primary); font-size: 22px; font-weight: 700; line-height: 1; }
+    .fit-metric-note { color: var(--text-secondary); font-size: 11px; margin-top: 8px; }
+    .fit-judgement {
+      border: 1px solid var(--border-light);
+      border-left: 3px solid var(--primary-light);
+      border-radius: var(--radius-sm);
+      background: var(--bg-panel);
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+    .fit-judgement.good { border-left-color: var(--success); }
+    .fit-judgement.overfit, .fit-judgement.unstable { border-left-color: var(--warning); }
+    .fit-judgement.underfit { border-left-color: var(--danger); }
+    .fit-judgement-title { font-weight: 700; margin-bottom: 6px; }
+    .fit-judgement-message { color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
+    .fit-content-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr); gap: 16px; }
+    .fit-chart-wrap, .fit-table-wrap {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 14px;
+    }
+    .fit-chart-title, .fit-table-title {
+      color: var(--text-secondary); font-size: 13px; margin-bottom: 10px;
+      display: flex; justify-content: space-between; gap: 8px; align-items: center;
+    }
+    .fit-chart-img {
+      width: 100%; max-height: 360px; object-fit: contain;
+      background: #05070d; border-radius: 6px;
+    }
+    .fit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .fit-table th, .fit-table td {
+      padding: 8px 6px; border-bottom: 1px solid var(--border);
+      text-align: right; color: var(--text-secondary);
+    }
+    .fit-table th:first-child, .fit-table td:first-child { text-align: left; }
+    .fit-table th { color: var(--text-muted); font-weight: 600; }
+    .fit-table tr.best td { color: var(--success); font-weight: 600; }
+    .fit-records { margin-bottom: 16px; }
+    .fit-current-record {
+      width: 100%; border: 1px solid var(--border-light);
+      background: var(--glow); color: var(--text-primary);
+      border-radius: var(--radius-sm); padding: 12px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; cursor: pointer; text-align: left;
+    }
+    .fit-current-record.active { border-color: var(--primary-light); box-shadow: 0 0 0 1px rgba(33,150,243,0.25); }
+    .fit-record-main { min-width: 0; }
+    .fit-record-title { display: block; font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+    .fit-record-desc { display: block; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+    .fit-record-tag {
+      flex-shrink: 0; padding: 4px 8px; border-radius: 999px;
+      border: 1px solid rgba(76,175,80,0.45); color: var(--success);
+      background: rgba(76,175,80,0.08); font-size: 11px;
+    }
+    .fit-history-records {
+      margin-top: 10px; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); background: var(--bg-panel);
+      overflow: hidden;
+    }
+    .fit-history-records summary {
+      list-style: none; cursor: pointer; padding: 10px 14px;
+      color: var(--text-secondary); font-size: 13px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .fit-history-records summary::-webkit-details-marker { display: none; }
+    .fit-history-count { color: var(--text-muted); font-size: 11px; }
+    .fit-history-list {
+      display: flex; flex-direction: column; gap: 0;
+      border-top: 1px solid var(--border);
+    }
+    .fit-history-item {
+      width: 100%; border: none; border-bottom: 1px solid var(--border);
+      background: transparent; color: var(--text-secondary);
+      padding: 10px 14px; cursor: pointer; text-align: left;
+      display: flex; justify-content: space-between; gap: 12px;
+    }
+    .fit-history-item:last-child { border-bottom: none; }
+    .fit-history-item:hover, .fit-history-item.active { background: var(--bg-hover); color: var(--text-primary); }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 1200px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .result-grid { grid-template-columns: 1fr; }
+      .charts-grid { grid-template-columns: 1fr; }
+      .fit-summary-grid { grid-template-columns: repeat(3, 1fr); }
+      .fit-content-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .navbar {
+        height: auto; min-height: 64px;
+        flex-wrap: wrap; gap: 8px;
+        padding: 10px 14px;
+      }
+      .navbar-brand { flex: 1; min-width: 180px; }
+      .navbar-nav {
+        display: flex; order: 3; width: 100%;
+        overflow-x: auto; padding-bottom: 2px;
+      }
+      .nav-btn { flex: 0 0 auto; padding: 8px 12px; }
+      .main-container {
+        margin-top: 112px;
+        min-height: calc(100vh - 112px);
+      }
+      .sidebar { display: none; }
+      .content {
+        margin-left: 0; padding: 18px;
+        min-height: calc(100vh - 112px);
+      }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .analysis-options { grid-template-columns: 1fr; }
+      .fit-summary-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* ===== 动画工具类 ===== */
+    .pulse { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* ===== 工具提示 ===== */
+    [title] { cursor: help; }
+
+    /* ===== 分割线 ===== */
+    .divider {
+      border: none; border-top: 1px solid var(--border);
+      margin: 16px 0;
+    }
+
+    /* ===== section标题 ===== */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .section-title { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+    /* ===== 高亮框 ===== */
+    .highlight-box {
+      padding: 12px 16px; border-radius: var(--radius-sm);
+      border-left: 3px solid;
+    }
+    .highlight-info { background: rgba(33,150,243,0.08); border-color: var(--primary-light); }
+    .highlight-success { background: rgba(76,175,80,0.08); border-color: var(--success); }
+    .highlight-warning { background: rgba(255,152,0,0.08); border-color: var(--warning); }
+    .highlight-danger { background: rgba(244,67,54,0.08); border-color: var(--danger); }
+  </style>
+</head>
+<body>
+
+<!-- 顶部导航栏 -->
+<nav class="navbar">
+  <a class="navbar-brand" href="#">
+    <div class="navbar-logo">🏥</div>
+    <div>
+      <div class="navbar-title">医影智诊</div>
+      <div class="navbar-subtitle">Medical Imaging AI Platform</div>
+    </div>
+  </a>
+  <div class="navbar-nav" aria-label="移动端页面导航">
+    <button class="nav-btn active" data-page="dashboard" onclick="switchPage('dashboard')">📊 仪表盘</button>
+    <button class="nav-btn" data-page="analyze" onclick="switchPage('analyze')">🔬 影像分析</button>
+    <button class="nav-btn" data-page="history" onclick="switchPage('history')">📋 历史记录</button>
+    <button class="nav-btn" data-page="stats" onclick="switchPage('stats')">📈 统计报表</button>
+    <button class="nav-btn" data-page="agents" onclick="switchPage('agents')">🧠 智能体</button>
+    <button class="nav-btn" data-page="dialogue" onclick="switchPage('dialogue')">💬 对话</button>
+  </div>
+  <div class="navbar-right">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">系统就绪</span>
+  </div>
+</nav>
+
+<!-- 主容器 -->
+<div class="main-container">
+
+  <!-- 侧边栏 -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">工作台</div>
+      <div class="sidebar-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+        <span class="icon">📊</span> 仪表盘
+      </div>
+      <div class="sidebar-item" data-page="analyze" onclick="switchPage('analyze')">
+        <span class="icon">🔬</span> 影像分析
+      </div>
+      <div class="sidebar-item" data-page="history" onclick="switchPage('history')">
+        <span class="icon">📋</span> 历史记录
+        <span class="sidebar-badge" id="historyBadge">0</span>
+      </div>
+      <div class="sidebar-item" data-page="stats" onclick="switchPage('stats')">
+        <span class="icon">📈</span> 统计报表
+      </div>
+      <div class="sidebar-item" data-page="agents" onclick="switchPage('agents')">
+        <span class="icon">🧠</span> 智能体状态
+      </div>
+      <div class="sidebar-item" data-page="dialogue" onclick="switchPage('dialogue')">
+        <span class="icon">💬</span> AI对话
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">影像类型</div>
+      <div class="sidebar-item" onclick="filterByBodyPart('chest')">
+        <span class="icon">🫁</span> 胸部影像
+      </div>
+      <div class="sidebar-item" onclick="filterByBodyPart('brain')">
+        <span class="icon">🧠</span> 颅脑影像
+      </div>
+      <div class="sidebar-item" onclick="filterByBodyPart('abdomen')">
+        <span class="icon">🔍</span> 腹部影像
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">系统信息</div>
+      <div style="padding: 10px 12px; font-size: 11px; color: var(--text-muted); line-height: 1.8;">
+        <div>🟢 AI引擎：在线</div>
+        <div>📡 API状态：<span id="apiStatus">检测中…</span></div>
+        <div>🖼️ 支持格式：DCM/JPG/PNG</div>
+        <div>📏 最大文件：100MB</div>
+        <div style="margin-top:8px;">🤖 智能体：<span id="agentStatus">离线</span></div>
+        <div>💬 对话：<span id="dialogueStatus">未连接</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 内容区域 -->
+  <main class="content">
+
+    <!-- 仪表盘页 -->
+    <div id="page-dashboard" class="page active">
+      <div class="section-header">
+        <div class="section-title">📊 系统概览</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadStats()">🔄 刷新</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card blue">
+          <div class="stat-icon">🔬</div>
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-label">累计分析次数</div>
+          <div class="stat-change">今日 +<span id="stat-today">0</span></div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value" id="stat-normal">0</div>
+          <div class="stat-label">正常影像数</div>
+          <div class="stat-change">无明显异常</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-icon">⚠️</div>
+          <div class="stat-value" id="stat-findings">0</div>
+          <div class="stat-label">发现异常数</div>
+          <div class="stat-change">需关注</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-value" id="stat-avgtime">0s</div>
+          <div class="stat-label">平均分析时长</div>
+          <div class="stat-change">AI加速分析</div>
+        </div>
+      </div>
+
+      <!-- 快捷操作 -->
+      <div class="upload-section">
+        <div class="upload-title">⚡ 快速分析</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">快速上传影像进行AI智能分析，或使用演示数据体验功能</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-lg" onclick="switchPage('analyze')">
+            🔬 开始影像分析
+          </button>
+          <button class="btn btn-accent btn-lg" onclick="runDemoAnalysis()">
+            🎮 演示模式
+          </button>
+          <button class="btn btn-secondary btn-lg" onclick="openFitMonitor()">
+            📈 拟合监控
+          </button>
+          <button class="btn btn-secondary btn-lg" onclick="switchPage('history')">
+            📋 查看历史
+          </button>
+        </div>
+      </div>
+
+      <!-- 最近记录 -->
+      <div class="section-header">
+        <div class="section-title">🕐 最近分析</div>
+        <button class="btn btn-secondary btn-sm" onclick="switchPage('history')">查看全部</button>
+      </div>
+      <div class="history-table-wrap">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>缩略图</th>
+              <th>文件名</th>
+              <th>影像部位</th>
+              <th>分析结果</th>
+              <th>分析时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="recentTableBody">
+            <tr>
+              <td colspan="6">
+                <div class="empty-state" style="padding:30px">
+                  <div class="empty-icon">🔬</div>
+                  <div class="empty-title">暂无分析记录</div>
+                  <div class="empty-desc">点击上方"开始影像分析"或"演示模式"开始使用</div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 影像分析页 -->
+    <div id="page-analyze" class="page">
+      <div class="section-header">
+        <div class="section-title">🔬 医疗影像AI分析</div>
+      </div>
+
+      <!-- 上传区域 -->
+      <div class="upload-section">
+        <div class="upload-title">📤 上传影像文件</div>
+        <div class="upload-drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-icon">🫁</div>
+          <div class="upload-text">点击上传或拖放影像文件到此处</div>
+          <div class="upload-hint">支持DICOM、JPEG、PNG、BMP、TIFF等医学影像格式</div>
+          <div class="upload-formats">
+            <span class="format-badge">DCM</span>
+            <span class="format-badge">JPEG</span>
+            <span class="format-badge">PNG</span>
+            <span class="format-badge">BMP</span>
+            <span class="format-badge">TIFF</span>
+          </div>
+          <input type="file" id="fileInput" accept=".dcm,.jpg,.jpeg,.png,.bmp,.tiff,.tif"
+                 onchange="handleFileSelect(this)">
+        </div>
+
+        <!-- 已选文件 -->
+        <div id="selectedFile" style="display:none;margin-top:12px;padding:12px 16px;
+             background:var(--bg-panel);border-radius:var(--radius-sm);
+             border:1px solid var(--border-light);">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div id="filePreview" style="width:80px;height:80px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--bg-primary);display:flex;align-items:center;justify-content:center;border:1px solid var(--border-light);">
+              <span style="font-size:32px" id="fileTypeIcon">📄</span>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div id="selectedFileName" style="font-size:14px;color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+              <div id="selectedFileSize" style="font-size:12px;color:var(--text-muted);margin-top:4px;"></div>
+              <div id="selectedFileDim" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+            </div>
+            <button class="btn btn-secondary btn-sm"
+                    onclick="clearSelectedFile()">✕ 移除</button>
+          </div>
+        </div>
+
+        <!-- 分析选项 -->
+        <div class="analysis-options">
+          <div class="option-group">
+            <div class="option-label">分析类型</div>
+            <select class="option-select" id="analysisType">
+              <option value="comprehensive">🔍 综合全面分析</option>
+              <option value="quick">⚡ 快速筛查</option>
+              <option value="detailed">📊 详细定量分析</option>
+              <option value="comparison">📐 对比分析</option>
+            </select>
+          </div>
+          <div class="option-group">
+            <div class="option-label">AI检测灵敏度：<span id="sensitivityLabel" style="color:var(--accent)">75%</span></div>
+            <input type="range" id="sensitivitySlider" min="10" max="100" value="75"
+                   oninput="document.getElementById('sensitivityLabel').textContent=this.value+'%'">
+          </div>
+        </div>
+
+        <!-- 进度条 -->
+        <div class="progress-container" id="progressContainer">
+          <div class="progress-label" id="progressLabel">正在分析中...</div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="progress-steps">
+            <span class="progress-step" id="step1">📤 上传影像</span>
+            <span class="progress-step" id="step2">🔍 预处理</span>
+            <span class="progress-step" id="step3">🧠 AI分析</span>
+            <span class="progress-step" id="step4">📋 生成报告</span>
+          </div>
+        </div>
+
+        <div class="actions-bar">
+          <button class="btn btn-primary btn-lg" id="analyzeBtn" onclick="startAnalysis()" disabled>
+            🔬 开始AI分析
+          </button>
+          <button class="btn btn-accent" onclick="runDemoAnalysis()">
+            🎮 演示分析
+          </button>
+          <button class="btn btn-secondary" onclick="openFitMonitor()">
+            📈 拟合监控
+          </button>
+          <button class="btn btn-secondary" onclick="clearAll()">
+            🗑️ 清空
+          </button>
+        </div>
+      </div>
+
+      <!-- 分析结果 -->
+      <div class="result-section" id="resultSection">
+        <div class="section-header">
+          <div class="section-title">📋 分析结果</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="downloadReport()">📥 下载报告</button>
+            <button class="btn btn-secondary btn-sm" onclick="shareResult()">🔗 分享</button>
+          </div>
+        </div>
+
+        <div class="result-grid">
+          <!-- 影像面板 -->
+          <div class="result-image-panel">
+            <div class="result-image-title">🖼️ 影像预览</div>
+            <div class="result-view-tabs" id="resultViewTabs">
+              <button class="result-view-tab active" type="button" data-view="overlay" onclick="setResultView('overlay')">分割</button>
+              <button class="result-view-tab" type="button" data-view="original" onclick="setResultView('original')">原图</button>
+              <button class="result-view-tab" type="button" data-view="probability" onclick="setResultView('probability')">概率</button>
+              <button class="result-view-tab" type="button" data-view="mask" onclick="setResultView('mask')">掩膜</button>
+            </div>            <div class="medical-image-viewer" id="imageViewer">
+              <div class="image-placeholder">
+                <div class="ph-icon">🫁</div>
+                <div>影像加载中...</div>
+              </div>
+            </div>
+            <div class="result-view-caption" id="resultViewCaption"></div>
+            <div class="image-toolbar">
+              <button class="image-tool" onclick="adjustImage('contrast')" title="调节对比度">☀️ 对比度</button>
+              <button class="image-tool" onclick="adjustImage('invert')" title="反色显示">🔄 反色</button>
+              <button class="image-tool" onclick="adjustImage('reset')" title="重置图像">↩️ 重置</button>
+            </div>
+            <div class="image-meta" id="imageMeta">
+              <div class="meta-row"><span class="meta-key">文件类型</span><span class="meta-val" id="metaType">-</span></div>
+              <div class="meta-row"><span class="meta-key">图像尺寸</span><span class="meta-val" id="metaSize">-</span></div>
+              <div class="meta-row"><span class="meta-key">影像部位</span><span class="meta-val" id="metaBodyPart">-</span></div>
+              <div class="meta-row"><span class="meta-key">分析时长</span><span class="meta-val" id="metaTime">-</span></div>
+              <div class="meta-row"><span class="meta-key">图像质量</span><span class="meta-val" id="metaQuality">-</span></div>
+              <div class="meta-row"><span class="meta-key">U-Net分割</span><span class="meta-val" id="metaSegmentation">-</span></div>
+            </div>
+          </div>
+
+          <!-- 报告面板 -->
+          <div class="result-report-panel">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="font-size:16px;font-weight:600;">AI分析结论</div>
+              <div id="riskBadge" class="risk-badge risk-low">✅ 低风险</div>
+            </div>
+
+            <div class="highlight-box" id="conclusionBox" style="border-color:var(--success);background:rgba(76,175,80,0.08)">
+              <div style="font-size:14px;color:var(--text-primary);" id="conclusionText">等待分析结果...</div>
+            </div>
+
+            <div id="recommendationBox" style="margin-top:12px;padding:12px 16px;background:var(--bg-panel);border-radius:var(--radius-sm);border:1px solid var(--accent);border-left:4px solid var(--accent);display:none;">
+              <div style="font-size:13px;color:var(--accent);font-weight:600;margin-bottom:8px;">💊 临床建议</div>
+              <div style="font-size:14px;color:var(--text-primary);line-height:1.6;" id="recommendationText"></div>
+            </div>
+
+            <div>
+              <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">📌 检测发现</div>
+              <div class="findings-grid" id="findingsGrid">
+                <div class="finding-item">
+                  <div class="finding-name">等待分析...</div>
+                </div>
+              </div>
+            </div>
+
+            <hr class="divider">
+
+            <div>
+              <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">📄 AI分析报告</div>
+              <div class="ai-report-box">
+                <pre class="ai-report-text" id="aiReportText">分析报告将在此显示...</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 历史记录页 -->
+    <div id="page-history" class="page">
+      <div class="history-header">
+        <div class="history-title">📋 分析历史记录</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="history-filters">
+            <button class="filter-btn active" onclick="filterHistory('all', this)">全部</button>
+            <button class="filter-btn" onclick="filterHistory('normal', this)">正常</button>
+            <button class="filter-btn" onclick="filterHistory('finding', this)">异常</button>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadHistory()">🔄 刷新</button>
+          <button class="btn btn-danger btn-sm" onclick="clearAllHistory()">🗑️ 清空</button>
+        </div>
+      </div>
+      <div class="history-table-wrap">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>缩略图</th>
+              <th>文件名称</th>
+              <th>影像类型</th>
+              <th>检查部位</th>
+              <th>分析结果</th>
+              <th>风险等级</th>
+              <th>上传时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <tr><td colspan="8">
+              <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <div class="empty-title">暂无历史记录</div>
+                <div class="empty-desc">完成影像分析后记录将显示在这里</div>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 统计报表页 -->
+    <div id="page-stats" class="page">
+      <div class="section-header">
+        <div class="section-title">📈 统计分析报表</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadStats()">🔄 刷新数据</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card blue">
+          <div class="stat-icon">🔬</div>
+          <div class="stat-value" id="stat2-total">0</div>
+          <div class="stat-label">总分析次数</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value" id="stat2-normal">0</div>
+          <div class="stat-label">正常影像</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-icon">⚠️</div>
+          <div class="stat-value" id="stat2-findings">0</div>
+          <div class="stat-label">异常发现</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon">📊</div>
+          <div class="stat-value" id="stat2-rate">0%</div>
+          <div class="stat-label">异常检出率</div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <!-- 饼图 -->
+        <div class="chart-card">
+          <div class="chart-title">🍩 结果分布</div>
+          <div class="donut-chart">
+            <svg class="donut-svg" viewBox="0 0 160 160" id="donutSvg">
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#1e2d50" stroke-width="24"/>
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#4caf50" stroke-width="24"
+                      stroke-dasharray="0 377" stroke-linecap="round"
+                      transform="rotate(-90 80 80)" id="donutNormal" style="transition:all 1s"/>
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#ff9800" stroke-width="24"
+                      stroke-dasharray="0 377" stroke-linecap="round"
+                      transform="rotate(-90 80 80)" id="donutFinding" style="transition:all 1s"/>
+            </svg>
+            <div class="donut-center">
+              <div class="donut-val" id="donutTotal">0</div>
+              <div class="donut-lbl">总计</div>
+            </div>
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#4caf50"></div>正常</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff9800"></div>异常</div>
+          </div>
+        </div>
+
+        <!-- 柱状图 -->
+        <div class="chart-card">
+          <div class="chart-title">📊 部位分布</div>
+          <div class="bar-chart" id="barChart">
+            <div class="bar-row">
+              <div class="bar-label">胸部</div>
+              <div class="bar-track">
+                <div class="bar-fill bar-chest" id="bar-chest" style="width:0%">0</div>
+              </div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">颅脑</div>
+              <div class="bar-track">
+                <div class="bar-fill bar-brain" id="bar-brain" style="width:0%">0</div>
+              </div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">腹部</div>
+              <div class="bar-track">
+                <div class="bar-fill bar-abdomen" id="bar-abdomen" style="width:0%">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 风险分布 -->
+        <div class="chart-card">
+          <div class="chart-title">🎯 风险等级分布</div>
+          <div id="riskChart" style="margin-top:16px;">
+            <div style="display:flex;flex-direction:column;gap:12px;" id="riskBars"></div>
+          </div>
+        </div>
+
+        <!-- 系统信息 -->
+        <div class="chart-card">
+          <div class="chart-title">⚙️ 系统能力</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;" id="capabilityInfo">
+            <div class="highlight-box highlight-info">
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary);">🏥 支持的分析能力</div>
+              <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">
+                • DICOM医学影像解析<br>
+                • X光/CT/MRI智能识别<br>
+                • 多部位病灶检测<br>
+                • 自动生成诊断报告<br>
+                • 历史对比分析
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 智能体状态页 -->
+    <div id="page-agents" class="page">
+      <div class="section-header">
+        <div class="section-title">🧠 智能体系统状态</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadAgentStatus()">🔄 刷新</button>
+      </div>
+
+      <!-- 智能体卡片 -->
+      <div class="stats-grid">
+        <div class="stat-card blue">
+          <div class="stat-icon">📁</div>
+          <div class="stat-value" id="agent-watcher-state">-</div>
+          <div class="stat-label">文件监控</div>
+          <div class="stat-change" id="agent-watcher-files">待处理: 0</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon">💬</div>
+          <div class="stat-value" id="agent-dialogue-count">0</div>
+          <div class="stat-label">对话会话</div>
+          <div class="stat-change" id="agent-dialogue-active">活跃: 0</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-icon">📋</div>
+          <div class="stat-value" id="agent-plan-count">0</div>
+          <div class="stat-label">执行计划</div>
+          <div class="stat-change" id="agent-plan-running">运行中: 0</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon">🔌</div>
+          <div class="stat-value" id="agent-ws-connections">0</div>
+          <div class="stat-label">WebSocket连接</div>
+          <div class="stat-change" id="agent-ws-status">未连接</div>
+        </div>
+      </div>
+
+      <!-- 文件监控控制 -->
+      <div class="upload-section">
+        <div class="upload-title">📁 文件夹监控</div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
+            <div class="option-label">监控目录</div>
+            <input type="text" id="watchDirInput" class="option-select" 
+                   value="backend/watched_folders" placeholder="输入监控目录路径">
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-end;">
+            <button class="btn btn-primary" id="watcherToggleBtn" onclick="toggleWatcher()">
+              ▶️ 启动监控
+            </button>
+            <button class="btn btn-secondary" onclick="openWatchFolder()">
+              📂 打开目录
+            </button>
+          </div>
+        </div>
+        <div class="highlight-box highlight-info" style="margin-top:12px;">
+          <div style="font-size:12px;color:var(--text-secondary);">
+            💡 将医学影像文件放入监控目录，系统将自动进行分析并推送结果
+          </div>
+        </div>
+      </div>
+
+      <!-- 智能体能力展示 -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-title">📁 FileWatcher 文件监控</div>
+          <div style="margin-top:12px;font-size:12px;color:var(--text-secondary);">
+            <p>• 实时监控指定文件夹</p>
+            <p>• 自动识别医学影像格式</p>
+            <p>• 新文件自动触发分析</p>
+            <p>• WebSocket实时推送结果</p>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">💬 Dialogue 对话智能体</div>
+          <div style="margin-top:12px;font-size:12px;color:var(--text-secondary);">
+            <p>• 多轮对话上下文记忆</p>
+            <p>• 关联当前分析结果</p>
+            <p>• 智能问答和建议</p>
+            <p>• 对话历史持久化</p>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">📋 Planner 任务规划</div>
+          <div style="margin-top:12px;font-size:12px;color:var(--text-secondary);">
+            <p>• 复杂问题智能拆解</p>
+            <p>• 多步骤任务编排</p>
+            <p>• 执行状态实时追踪</p>
+            <p>• 结果聚合输出</p>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">🔌 WebSocket 实时通信</div>
+          <div style="margin-top:12px;font-size:12px;color:var(--text-secondary);">
+            <p>• 双向实时通信</p>
+            <p>• 自动重连机制</p>
+            <p>• 事件驱动推送</p>
+            <p>• 多客户端支持</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 对话页面 -->
+    <div id="page-dialogue" class="page">
+      <div class="section-header">
+        <div class="section-title">💬 AI对话助手</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="newConversation()">➕ 新对话</button>
+          <button class="btn btn-secondary btn-sm" onclick="clearCurrentChat()">🗑️ 清空</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:260px 1fr;gap:20px;height:calc(100vh - 180px);">
+        <!-- 对话列表 -->
+        <div class="upload-section" style="height:100%;overflow-y:auto;padding:16px;">
+          <div class="sidebar-label">会话列表</div>
+          <div id="conversationList">
+            <div class="empty-state" style="padding:20px;">
+              <div class="empty-icon" style="font-size:32px;">💬</div>
+              <div class="empty-title" style="font-size:13px;">暂无对话</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 对话区域 -->
+        <div style="display:flex;flex-direction:column;height:100%;">
+          <!-- 当前分析上下文 -->
+          <div class="highlight-box highlight-info" id="contextInfo" style="margin-bottom:12px;display:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <span style="font-size:12px;color:var(--accent);">📎 关联分析结果：</span>
+                <span style="font-size:12px;" id="contextFilename">-</span>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="clearContext()">解除关联</button>
+            </div>
+          </div>
+
+          <!-- 消息列表 -->
+          <div id="chatMessages" class="upload-section" style="flex:1;overflow-y:auto;padding:16px;min-height:0;">
+            <div class="empty-state" style="height:100%;display:flex;flex-direction:column;justify-content:center;">
+              <div class="empty-icon" style="font-size:48px;">🤖</div>
+              <div class="empty-title">开始与AI对话</div>
+              <div class="empty-desc">您可以针对分析结果进行追问，或咨询相关医学问题</div>
+            </div>
+          </div>
+
+          <!-- 快速问题 -->
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;" id="quickQuestions">
+            <button class="filter-btn" onclick="askQuestion('解释一下分析结果')">📖 解释结果</button>
+            <button class="filter-btn" onclick="askQuestion('有什么临床建议？')">💊 临床建议</button>
+            <button class="filter-btn" onclick="askQuestion('风险评估怎么样？')">⚠️ 风险评估</button>
+            <button class="filter-btn" onclick="askQuestion('与历史记录对比')">📊 历史对比</button>
+          </div>
+
+          <!-- 输入区域 -->
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <input type="text" id="chatInput" class="option-select" 
+                   placeholder="输入您的问题..." style="flex:1;"
+                   onkeypress="if(event.key==='Enter')sendChatMessage()">
+            <button class="btn btn-primary" onclick="sendChatMessage()">发送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- 结果详情模态框 -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📋 详细分析报告</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <!-- 动态填充 -->
+    </div>
+  </div>
+</div>
+
+<!-- Toast 通知容器 -->
+<!-- 拟合监控弹窗 -->
+<div class="modal-overlay" id="fitMonitorModal">
+  <div class="modal fit-modal">
+    <div class="modal-header">
+      <div class="modal-title">📈 U-Net 拟合监控</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-secondary btn-sm" onclick="loadFitMonitor()">刷新</button>
+        <button class="modal-close" onclick="closeFitMonitor()">×</button>
+      </div>
+    </div>
+    <div class="modal-body" id="fitMonitorBody">
+      <div class="empty-state" style="padding:30px;">
+        <div class="empty-title">正在读取训练曲线...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  // ==================== 全局状态 ====================
+  const isLocalPage = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
+  const API_BASE = isLocalPage
+    ? (window.location.port === '8000' ? window.location.origin : 'http://localhost:8000')
+    : window.location.origin;
+
+  let currentFile = null;
+  let historyFilter = 'all';
+  let imageContrast = 1.0;
+  let imageInverted = false;
+  let currentResult = null;
+  let resultViewImages = {};
+  let activeResultView = 'overlay';
+  let filePreviewRequestId = 0;
+  let fitMonitorData = null;
+
+  // ==================== 初始化 ====================
+  document.addEventListener('DOMContentLoaded', () => {
+    checkApiStatus();
+    loadStats();
+    loadHistory();
+    loadAgentStatus();
+    setupDragDrop();
+    setInterval(checkApiStatus, 30000);
+  });
+
+  // ==================== API状态检测 ====================
+  async function checkApiStatus() {
+    try {
+      const res = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(5000) });
+      const data = await res.json();
+      document.getElementById('statusDot').style.background = '#4caf50';
+      document.getElementById('statusText').textContent = '系统就绪';
+      document.getElementById('apiStatus').textContent = '✅ 在线';
+
+      if (!data.capabilities.dicom) {
+        document.getElementById('apiStatus').textContent = '⚠️ 基础模式';
+      }
+    } catch (e) {
+      document.getElementById('statusDot').style.background = '#f44336';
+      document.getElementById('statusText').textContent = '后端未连接';
+      document.getElementById('apiStatus').textContent = '❌ 离线';
+    }
+  }
+
+  // ==================== 页面切换 ====================
+  function switchPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn, .sidebar-item[data-page]').forEach(item => item.classList.remove('active'));
+
+    const page = document.getElementById(`page-${name}`);
+    if (!page) return;
+    page.classList.add('active');
+    document.querySelectorAll(`[data-page="${name}"]`).forEach(item => item.classList.add('active'));
+
+    if (name === 'history') loadHistory();
+    if (name === 'stats') loadStats();
+  }
+
+  function getPageLabel(name) {
+    return {dashboard:'仪表盘', analyze:'影像分析', history:'历史记录', stats:'统计报表'}[name] || '';
+  }
+
+  // ==================== 拖放上传 ====================
+  function setupDragDrop() {
+    const zone = document.getElementById('dropZone');
+    if (!zone) return;
+
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      zone.classList.add('drag-over');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) processFileSelection(file);
+    });
+  }
+
+  function handleFileSelect(input) {
+    if (input.files[0]) processFileSelection(input.files[0]);
+  }
+
+  let previewUrl = null; // 预览图片URL
+
+  function legacyBrowserPreviewProcessFileSelection(file) {
+    processFileSelection(file);
+  }
+
+  function processFileSelection(file) {
+    const allowedExts = ['.dcm', '.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'];
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowedExts.includes(ext)) {
+      showToast('不支持的文件格式: ' + ext, 'error');
+      return;
+    }
+
+    currentFile = file;
+    const selected = document.getElementById('selectedFile');
+    selected.style.display = 'flex';
+    document.getElementById('selectedFileName').textContent = file.name;
+    document.getElementById('selectedFileSize').textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+    document.getElementById('selectedFileDim').textContent = '读取中...';
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('resultSection').classList.remove('visible');
+
+    const preview = document.getElementById('filePreview');
+    const requestId = ++filePreviewRequestId;
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+    preview.innerHTML = `<span class="spin" style="font-size:24px">⏳</span>`;
+    loadFilePreview(file, requestId);
+  }
+
+  async function loadFilePreview(file, requestId) {
+    const preview = document.getElementById('filePreview');
+    const fileDim = document.getElementById('selectedFileDim');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${API_BASE}/api/preview-image`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (requestId !== filePreviewRequestId) return;
+      if (!res.ok || !data.success || !data.preview) {
+        throw new Error(data.detail || data.error || 'preview unavailable');
+      }
+      preview.innerHTML = `<img src="data:image/png;base64,${data.preview}" style="width:100%;height:100%;object-fit:cover;" alt="image preview" />`;
+      fileDim.textContent = data.width && data.height ? `${data.width}×${data.height}` : '可预览';
+    } catch (e) {
+      if (requestId !== filePreviewRequestId) return;
+      const isDicom = file.name.toLowerCase().endsWith('.dcm');
+      preview.innerHTML = `<span style="font-size:32px">${isDicom ? '🏥' : '🖼️'}</span>`;
+      fileDim.textContent = '无法读取尺寸';
+      console.warn('Preview unavailable:', e);
+    }
+  }
+
+  function clearFileSelection() {
+    currentFile = null;
+    filePreviewRequestId++;
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+    const input = document.getElementById('fileInput');
+    if (input) input.value = '';
+    document.getElementById('selectedFile').style.display = 'none';
+    document.getElementById('filePreview').innerHTML = '<span style="font-size:32px" id="fileTypeIcon">📄</span>';
+    document.getElementById('selectedFileDim').textContent = '-';
+    document.getElementById('analyzeBtn').disabled = true;
+    document.getElementById('resultSection').classList.remove('visible');
+  }
+
+  async function startAnalysis() {
+    if (!currentFile) {
+      showToast('请先选择影像文件', 'warning');
+      return;
+    }
+    await performAnalysis(currentFile, false);
+  }
+
+  async function runDemoAnalysis() {
+    showProgress(true);
+    animateProgress();
+    try {
+      const res = await fetch(`${API_BASE}/api/demo-analyze`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.detail || data.error || 'demo failed');
+      displayResult(data);
+      loadHistory();
+      loadStats();
+      showToast('演示分析完成', 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('演示分析失败: ' + e.message, 'error');
+    } finally {
+      hideProgress();
+    }
+  }
+
+  async function performAnalysis(file, isDemo) {
+    const analysisType = document.getElementById('analysisType').value;
+    const sensitivity = document.getElementById('sensitivitySlider')?.value || 0.75;
+    const btn = document.getElementById('analyzeBtn');
+    showProgress(true);
+    animateProgress();
+    if (btn) btn.disabled = true;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('analysis_type', analysisType);
+      formData.append('sensitivity', sensitivity);
+      const res = await fetch(`${API_BASE}/api/upload-and-analyze`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.detail || data.error || 'analysis failed');
+      displayResult(data);
+      loadHistory();
+      loadStats();
+      showToast('分析完成', 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('分析失败: ' + e.message, 'error');
+    } finally {
+      hideProgress();
+      if (btn && currentFile) btn.disabled = false;
+    }
+  }
+
+  function getResultViewDefinitions(data) {
+    return {
+      overlay: {
+        label: '分割',
+        src: data.segmentation_overlay ? `data:image/png;base64,${data.segmentation_overlay}` : '',
+        alt: 'U-Net分割叠加图',
+        caption: '当前部署阈值下的分割叠加结果'
+      },
+      original: {
+        label: '原图',
+        src: data.thumbnail ? `data:image/png;base64,${data.thumbnail}` : '',
+        alt: '医学影像原图',
+        caption: '后端预览转换后的原始影像'
+      },
+      probability: {
+        label: '概率',
+        src: data.segmentation_probability ? `data:image/png;base64,${data.segmentation_probability}` : '',
+        alt: 'U-Net概率图',
+        caption: '模型输出概率图，亮处代表更高分割概率'
+      },
+      mask: {
+        label: '掩膜',
+        src: data.segmentation_mask ? `data:image/png;base64,${data.segmentation_mask}` : '',
+        alt: 'U-Net二值掩膜',
+        caption: '阈值和形态学后处理后的二值掩膜'
+      }
+    };
+  }
+
+  function renderResultViewTabs() {
+    const tabs = document.querySelectorAll('#resultViewTabs .result-view-tab');
+    tabs.forEach(btn => {
+      const key = btn.dataset.view;
+      const hasImage = Boolean(resultViewImages[key]?.src);
+      btn.disabled = !hasImage;
+      btn.classList.toggle('active', key === activeResultView);
+    });
+  }
+
+  function renderResultImage() {
+    const viewer = document.getElementById('imageViewer');
+    const caption = document.getElementById('resultViewCaption');
+    const view = resultViewImages[activeResultView] || resultViewImages.overlay || resultViewImages.original;
+    if (view?.src) {
+      viewer.innerHTML = `<img id="resultImg" src="${view.src}" alt="${view.alt}">`;
+      if (caption) caption.textContent = view.caption || '';
+    } else {
+      viewer.innerHTML = `<div class="image-placeholder"><div class="ph-icon">🫁</div><div>影像预览不可用</div></div>`;
+      if (caption) caption.textContent = '';
+    }
+    imageContrast = 1.0;
+    imageInverted = false;
+    renderResultViewTabs();
+  }
+
+  function setResultView(viewName) {
+    if (!resultViewImages[viewName]?.src) return;
+    activeResultView = viewName;
+    renderResultImage();
+  }
+
+  // ==================== 显示结果 ====================
+  function displayResult(data) {
+    currentResult = data;
+    const section = document.getElementById('resultSection');
+    section.classList.add('visible');
+
+    resultViewImages = getResultViewDefinitions(data);
+    activeResultView = resultViewImages.overlay.src ? 'overlay' : 'original';
+    renderResultImage();
+
+    const bodyPartCn = {'chest':'胸部', 'brain':'颅脑', 'abdomen':'腹部'}[data.body_part] || data.body_part || '-';
+    document.getElementById('metaType').textContent = data.file_type || '-';
+    document.getElementById('metaSize').textContent = `${data.properties?.width || 0}×${data.properties?.height || 0}`;
+    document.getElementById('metaBodyPart').textContent = bodyPartCn;
+    document.getElementById('metaTime').textContent = (data.analysis_time || 0) + 's';
+    document.getElementById('metaQuality').textContent = data.properties?.image_quality || '-';
+    const unet = data.detection?.unet_segmentation;
+    document.getElementById('metaSegmentation').textContent = unet
+      ? `${unet.area_percent || 0}% / p=${Number(unet.mean_probability || 0).toFixed(3)}`
+      : '未加载';
+
+    const det = data.detection || {};
+    const riskLevel = det.risk_level || 'low';
+    const riskBadge = document.getElementById('riskBadge');
+    const riskMap = {
+      low: { cls: 'risk-low', txt: '低风险' },
+      medium: { cls: 'risk-medium', txt: '中等风险' },
+      high: { cls: 'risk-high', txt: '高风险' }
+    };
+    const ri = riskMap[riskLevel] || riskMap.low;
+    riskBadge.className = `risk-badge ${ri.cls}`;
+    riskBadge.textContent = ri.txt;
+
+    const conclusionBox = document.getElementById('conclusionBox');
+    const conclusionText = document.getElementById('conclusionText');
+    conclusionText.textContent = det.overall_assessment || '分析完成';
+    if (det.has_significant_finding) {
+      conclusionBox.style.borderColor = 'var(--warning)';
+      conclusionBox.style.background = 'rgba(255,152,0,0.08)';
+    } else {
+      conclusionBox.style.borderColor = 'var(--success)';
+      conclusionBox.style.background = 'rgba(76,175,80,0.08)';
+    }
+
+    const recBox = document.getElementById('recommendationBox');
+    const recText = document.getElementById('recommendationText');
+    if (det.clinical_recommendation) {
+      recBox.style.display = 'block';
+      recText.textContent = det.clinical_recommendation;
+    } else {
+      recBox.style.display = 'none';
+    }
+
+    const grid = document.getElementById('findingsGrid');
+    grid.innerHTML = '';
+    if (det.has_significant_finding && det.primary_finding) {
+      const f = det.primary_finding;
+      grid.innerHTML += `
+        <div class="finding-item abnormal">
+          <div class="finding-name">${f.type || '异常发现'}</div>
+          <div class="finding-detail">位置: ${f.location || '-'}</div>
+          ${f.size ? `<div class="finding-detail">大小: ${f.size}</div>` : ''}
+          <div class="finding-detail">置信度: ${((f.confidence || 0.85) * 100).toFixed(0)}%</div>
+        </div>`;
+    }
+    (det.normal_summary || []).forEach(item => {
+      grid.innerHTML += `<div class="finding-item"><div class="finding-name">${item}</div></div>`;
+    });
+    if (!grid.innerHTML) {
+      grid.innerHTML = '<div class="finding-item"><div class="finding-name">暂无详细数据</div></div>';
+    }
+
+    document.getElementById('aiReportText').textContent = data.ai_report || '报告生成中...';
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setAnalysisContext(data);
+  }
+  // ==================== 图像调整 ====================
+  function adjustImage(action) {
+    const img = document.getElementById('resultImg');
+    if (!img) return;
+
+    if (action === 'contrast') {
+      imageContrast = imageContrast >= 2.0 ? 1.0 : imageContrast + 0.3;
+    } else if (action === 'invert') {
+      imageInverted = !imageInverted;
+    } else if (action === 'reset') {
+      imageContrast = 1.0;
+      imageInverted = false;
+    }
+
+    const filters = [];
+    if (imageContrast !== 1.0) filters.push(`contrast(${imageContrast})`);
+    if (imageInverted) filters.push('invert(1)');
+    img.style.filter = filters.join(' ') || 'none';
+  }
+
+  // ==================== 进度动画 ====================
+  function showProgress(show) {
+    const container = document.getElementById('progressContainer');
+    container.style.display = show ? 'block' : 'none';
+    if (show) {
+      document.getElementById('progressBar').style.width = '0%';
+      ['step1','step2','step3','step4'].forEach(s => {
+        document.getElementById(s).className = 'progress-step';
+      });
+    }
+  }
+
+  function hideProgress() {
+    document.getElementById('progressContainer').style.display = 'none';
+  }
+
+  function animateProgress() {
+    const steps = [
+      { id: 'step1', label: '📤 正在上传影像...', progress: 25 },
+      { id: 'step2', label: '🔍 影像预处理中...', progress: 50 },
+      { id: 'step3', label: '🧠 AI模型推理中...', progress: 80 },
+      { id: 'step4', label: '📋 生成分析报告...', progress: 95 }
+    ];
+
+    let i = 0;
+    const bar = document.getElementById('progressBar');
+    const label = document.getElementById('progressLabel');
+
+    function next() {
+      if (i >= steps.length) return;
+      const step = steps[i];
+      label.textContent = step.label;
+      bar.style.width = step.progress + '%';
+
+      if (i > 0) document.getElementById(steps[i-1].id).className = 'progress-step done';
+      document.getElementById(step.id).className = 'progress-step active';
+      i++;
+      setTimeout(next, 600 + Math.random() * 400);
+    }
+    next();
+  }
+
+  // ==================== 历史记录 ====================
+  async function loadHistory() {
+    try {
+      const res = await fetch(`${API_BASE}/api/results?limit=50`);
+      const data = await res.json();
+      renderHistory(data.records || []);
+      renderRecentTable(data.records || []);
+      document.getElementById('historyBadge').textContent = data.total || 0;
+    } catch (e) {
+      console.error('加载历史失败:', e);
+    }
+  }
+
+  function renderHistory(records) {
+    const tbody = document.getElementById('historyTableBody');
+    let filtered = records;
+    if (historyFilter === 'normal') filtered = records.filter(r => !r.has_finding);
+    if (historyFilter === 'finding') filtered = records.filter(r => r.has_finding);
+
+    if (!filtered.length) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <div class="empty-title">暂无历史记录</div>
+        <div class="empty-desc">完成影像分析后记录将显示在这里</div>
+      </div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(r => `
+      <tr>
+        <td>${r.thumbnail
+          ? `<img class="history-thumbnail" src="data:image/png;base64,${r.thumbnail}" alt="缩略图">`
+          : `<div class="thumb-placeholder">🫁</div>`}</td>
+        <td style="color:var(--text-primary)">${r.filename || '-'}</td>
+        <td><span class="table-badge badge-dcm">${r.file_type || '-'}</span></td>
+        <td>${{chest:'🫁 胸部', brain:'🧠 颅脑', abdomen:'🔍 腹部'}[r.body_part] || r.body_part || '-'}</td>
+        <td><span class="table-badge ${r.has_finding ? 'badge-finding' : 'badge-normal'}">
+          ${r.has_finding ? '⚠️ 异常' : '✅ 正常'}</span></td>
+        <td>${renderRiskBadge(r.risk_level)}</td>
+        <td style="color:var(--text-muted)">${formatTime(r.upload_time)}</td>
+        <td><div class="table-actions">
+          <button class="btn btn-secondary btn-sm" onclick="viewDetail('${r.task_id}')">详情</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.task_id}')">删除</button>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  function renderRecentTable(records) {
+    const tbody = document.getElementById('recentTableBody');
+    const recent = records.slice(0, 5);
+    if (!recent.length) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:30px">
+        <div class="empty-icon">🔬</div>
+        <div class="empty-title">暂无分析记录</div>
+        <div class="empty-desc">点击上方按钮开始使用</div>
+      </div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = recent.map(r => `
+      <tr>
+        <td>${r.thumbnail
+          ? `<img class="history-thumbnail" src="data:image/png;base64,${r.thumbnail}" alt="缩略图">`
+          : `<div class="thumb-placeholder">🫁</div>`}</td>
+        <td style="color:var(--text-primary)">${r.filename || '-'}</td>
+        <td>${{chest:'🫁 胸部', brain:'🧠 颅脑', abdomen:'🔍 腹部'}[r.body_part] || r.body_part || '-'}</td>
+        <td><span class="table-badge ${r.has_finding ? 'badge-finding' : 'badge-normal'}">
+          ${r.has_finding ? '⚠️ 异常' : '✅ 正常'}</span></td>
+        <td style="color:var(--text-muted)">${formatTime(r.upload_time)}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="viewDetail('${r.task_id}')">详情</button></td>
+      </tr>`).join('');
+  }
+
+  function renderRiskBadge(level) {
+    const map = {low: '🟢 低', medium: '🟡 中', high: '🔴 高'};
+    return `<span style="font-size:12px">${map[level] || '🟢 低'}</span>`;
+  }
+
+  function filterHistory(type, btn) {
+    historyFilter = type;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadHistory();
+  }
+
+  function filterByBodyPart(part) {
+    switchPage('history');
+    setTimeout(() => {
+      const records = Object.values(window._cachedRecords || {})
+        .filter(r => r.body_part === part);
+    }, 100);
+  }
+
+  async function deleteRecord(taskId) {
+    if (!confirm('确认删除此分析记录？')) return;
+    try {
+      await fetch(`${API_BASE}/api/result/${taskId}`, { method: 'DELETE' });
+      showToast('记录已删除', 'success');
+      loadHistory();
+      loadStats();
+    } catch (e) {
+      showToast('删除失败', 'error');
+    }
+  }
+
+  async function clearAllHistory() {
+    if (!confirm('确认清空所有历史记录？此操作不可撤销！')) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/results?limit=100`);
+      const data = await res.json();
+      await Promise.all((data.records || []).map(r =>
+        fetch(`${API_BASE}/api/result/${r.task_id}`, { method: 'DELETE' })
+      ));
+      showToast('已清空所有记录', 'success');
+      loadHistory();
+      loadStats();
+    } catch (e) {
+      showToast('清空失败', 'error');
+    }
+  }
+
+  // ==================== 详情弹窗 ====================
+  async function viewDetail(taskId) {
+    try {
+      const res = await fetch(`${API_BASE}/api/result/${taskId}`);
+      const data = await res.json();
+      const bodyPartCn = {'chest':'胸部', 'brain':'颅脑', 'abdomen':'腹部'}[data.body_part] || data.body_part;
+      const det = data.detection || {};
+
+      document.getElementById('modalBody').innerHTML = `
+        <div style="display:grid;grid-template-columns:200px 1fr;gap:20px;">
+          <div>
+            ${data.thumbnail
+              ? `<img src="data:image/png;base64,${data.thumbnail}" style="width:100%;border-radius:8px;">`
+              : `<div style="height:200px;background:#000;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:36px;">🫁</div>`}
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <span style="font-size:16px;font-weight:600;">${data.filename}</span>
+              <span class="risk-badge ${det.risk_level === 'high' ? 'risk-high' : det.risk_level === 'medium' ? 'risk-medium' : 'risk-low'}">
+                ${det.has_significant_finding ? '⚠️ 发现异常' : '✅ 正常'}
+              </span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+              <div><span style="color:var(--text-muted)">文件类型：</span><span>${data.file_type || '-'}</span></div>
+              <div><span style="color:var(--text-muted)">检查部位：</span><span>${bodyPartCn}</span></div>
+              <div><span style="color:var(--text-muted)">分析时长：</span><span>${data.analysis_time}s</span></div>
+              <div><span style="color:var(--text-muted)">图像质量：</span><span>${data.properties?.image_quality || '-'}</span></div>
+            </div>
+            ${det.has_significant_finding && det.primary_finding ? `
+              <div class="highlight-box highlight-warning" style="margin-top:12px;">
+                <div style="font-weight:600;">⚠️ ${det.primary_finding.type}</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+                  位置: ${det.primary_finding.location} | 
+                  置信度: ${((det.primary_finding.confidence||0.85)*100).toFixed(0)}%
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">
+                  建议: ${det.primary_finding.recommendation || '-'}
+                </div>
+              </div>` : `
+              <div class="highlight-box highlight-success" style="margin-top:12px;">
+                <div style="font-weight:600;">✅ ${det.overall_assessment}</div>
+              </div>`}
+          </div>
+        </div>
+        <hr class="divider">
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">AI分析报告</div>
+        <div class="ai-report-box">
+          <pre class="ai-report-text">${data.ai_report || '暂无报告'}</pre>
+        </div>
+      `;
+      document.getElementById('detailModal').classList.add('open');
+    } catch (e) {
+      showToast('加载详情失败', 'error');
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('detailModal').classList.remove('open');
+  }
+
+  document.getElementById('detailModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('detailModal')) closeModal();
+  });
+
+  // ==================== 统计数据 ====================
+  function escapeHtml(value) {
+    const map = {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'};
+    return String(value ?? '').replace(/[&<>"']/g, ch => map[ch]);
+  }
+
+  function fmtMetric(value, digits = 4) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num.toFixed(digits) : '-';
+  }
+
+  function openFitMonitor() {
+    document.getElementById('fitMonitorModal').classList.add('open');
+    loadFitMonitor();
+  }
+
+  function closeFitMonitor() {
+    document.getElementById('fitMonitorModal').classList.remove('open');
+  }
+
+  document.getElementById('fitMonitorModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('fitMonitorModal')) closeFitMonitor();
+  });
+
+  async function loadFitMonitor() {
+    const body = document.getElementById('fitMonitorBody');
+    body.innerHTML = `
+      <div class="empty-state" style="padding:30px;">
+        <div class="empty-title">正在读取训练曲线...</div>
+      </div>`;
+    try {
+      const res = await fetch(`${API_BASE}/api/training/fit-status`, { signal: AbortSignal.timeout(8000) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.detail || '没有读取到训练记录');
+      fitMonitorData = data;
+      renderFitMonitor(0);
+    } catch (e) {
+      body.innerHTML = `
+        <div class="empty-state" style="padding:30px;">
+          <div class="empty-title">拟合数据读取失败</div>
+          <div class="empty-desc">${escapeHtml(e.message || e)}</div>
+        </div>`;
+    }
+  }
+
+  function fitRunMeta(run, idx) {
+    const name = run?.name || '';
+    const latestEpoch = run?.latest?.epoch ?? '-';
+    const bestDice = fmtMetric(run?.best?.val_dice);
+    const bestEpoch = run?.best?.epoch ?? '-';
+    const updated = run?.updated_at ? new Date(run.updated_at).toLocaleString('zh-CN') : '-';
+
+    if (name.includes('finetune_lr1e4')) {
+      return {
+        title: '当前模型记录 · 稳定微调',
+        desc: `第 ${latestEpoch} 轮，最佳 Dice ${bestDice}（第 ${bestEpoch} 轮），低学习率微调后接入当前分析。`,
+        tag: '当前使用',
+        updated
+      };
+    }
+    if (name.includes('agent_es')) {
+      return {
+        title: '上一阶段记录 · Early Stopping 训练',
+        desc: `第 ${latestEpoch} 轮，最佳 Dice ${bestDice}（第 ${bestEpoch} 轮），用于早停和阈值搜索的前一阶段结果。`,
+        tag: '历史记录',
+        updated
+      };
+    }
+    if (name === 'unet_agent') {
+      return {
+        title: '早期 Agent 记录 · 首版接入',
+        desc: `第 ${latestEpoch} 轮，最佳 Dice ${bestDice}（第 ${bestEpoch} 轮），本地 U-Net agent 的早期训练输出。`,
+        tag: '历史记录',
+        updated
+      };
+    }
+    if (name === 'unet') {
+      return {
+        title: '原始试跑记录 · 基线 U-Net',
+        desc: `第 ${latestEpoch} 轮，最佳 Dice ${bestDice}（第 ${bestEpoch} 轮），最早的基线训练记录。`,
+        tag: '历史记录',
+        updated
+      };
+    }
+    return {
+      title: `${idx === 0 ? '当前模型记录' : '历史训练记录'} · ${name || '未命名'}`,
+      desc: `第 ${latestEpoch} 轮，最佳 Dice ${bestDice}（第 ${bestEpoch} 轮）。`,
+      tag: idx === 0 ? '当前使用' : '历史记录',
+      updated
+    };
+  }
+
+  function renderFitMonitor(runIndex = 0) {
+    if (!fitMonitorData || !Array.isArray(fitMonitorData.runs) || !fitMonitorData.runs.length) return;
+    const run = fitMonitorData.runs[runIndex] || fitMonitorData.runs[0];
+    const history = run.history || [];
+    const latest = run.latest || {};
+    const best = run.best || {};
+    const judgement = run.judgement || {};
+    const recentRows = history.slice(-10);
+    const bestEpoch = Number(best.epoch);
+    const curve = run.curve_image
+      ? `<img class="fit-chart-img" src="data:image/png;base64,${run.curve_image}" alt="training curves">`
+      : `<div class="empty-state" style="padding:30px;"><div class="empty-title">暂无曲线图</div></div>`;
+
+    const currentMeta = fitRunMeta(fitMonitorData.runs[0], 0);
+    const historyRuns = fitMonitorData.runs.slice(1);
+    const historyItems = historyRuns.map((item, offset) => {
+      const idx = offset + 1;
+      const meta = fitRunMeta(item, idx);
+      return `
+        <button class="fit-history-item ${idx === runIndex ? 'active' : ''}" onclick="renderFitMonitor(${idx})">
+          <span>
+            <span class="fit-record-title">${escapeHtml(meta.title)}</span>
+            <span class="fit-record-desc">${escapeHtml(meta.desc)}</span>
+          </span>
+          <span class="fit-history-count">${escapeHtml(meta.updated)}</span>
+        </button>`;
+    }).join('');
+    const recordSelector = `
+      <div class="fit-records">
+        <button class="fit-current-record ${runIndex === 0 ? 'active' : ''}" onclick="renderFitMonitor(0)">
+          <span class="fit-record-main">
+            <span class="fit-record-title">${escapeHtml(currentMeta.title)}</span>
+            <span class="fit-record-desc">${escapeHtml(currentMeta.desc)}</span>
+          </span>
+          <span class="fit-record-tag">${escapeHtml(currentMeta.tag)}</span>
+        </button>
+        ${historyRuns.length ? `
+          <details class="fit-history-records" ${runIndex > 0 ? 'open' : ''}>
+            <summary>
+              <span>历史训练记录 ▾</span>
+              <span class="fit-history-count">${historyRuns.length} 条</span>
+            </summary>
+            <div class="fit-history-list">${historyItems}</div>
+          </details>` : ''}
+      </div>`;
+
+    const rows = recentRows.map(row => `
+      <tr class="${Number(row.epoch) === bestEpoch ? 'best' : ''}">
+        <td>${row.epoch ?? '-'}</td>
+        <td>${fmtMetric(row.train_loss)}</td>
+        <td>${fmtMetric(row.val_loss)}</td>
+        <td>${fmtMetric(row.train_dice)}</td>
+        <td>${fmtMetric(row.val_dice)}</td>
+        <td>${fmtMetric(row.val_iou)}</td>
+        <td>${fmtMetric(row.best_threshold, 2)}</td>
+      </tr>`).join('');
+
+    document.getElementById('fitMonitorBody').innerHTML = `
+      ${recordSelector}
+
+      <div class="fit-judgement ${escapeHtml(judgement.level || '')}">
+        <div class="fit-judgement-title">${escapeHtml(judgement.title || '拟合判断')}</div>
+        <div class="fit-judgement-message">${escapeHtml(judgement.message || '暂无自动判断。')}</div>
+      </div>
+
+      <div class="fit-summary-grid">
+        <div class="fit-metric">
+          <div class="fit-metric-label">最新轮次</div>
+          <div class="fit-metric-value">${latest.epoch ?? '-'}</div>
+          <div class="fit-metric-note">${escapeHtml(fitRunMeta(run, runIndex).title)}</div>
+        </div>
+        <div class="fit-metric">
+          <div class="fit-metric-label">最佳验证 Dice</div>
+          <div class="fit-metric-value">${fmtMetric(best.val_dice)}</div>
+          <div class="fit-metric-note">epoch ${best.epoch ?? '-'}</div>
+        </div>
+        <div class="fit-metric">
+          <div class="fit-metric-label">最新验证 Dice</div>
+          <div class="fit-metric-value">${fmtMetric(latest.val_dice)}</div>
+          <div class="fit-metric-note">最新 val IoU ${fmtMetric(latest.val_iou)}</div>
+        </div>
+        <div class="fit-metric">
+          <div class="fit-metric-label">训练/验证差距</div>
+          <div class="fit-metric-value">${fmtMetric(judgement.signals?.latest_gap)}</div>
+          <div class="fit-metric-note">越小越稳</div>
+        </div>
+        <div class="fit-metric">
+          <div class="fit-metric-label">最优阈值</div>
+          <div class="fit-metric-value">${fmtMetric(best.threshold, 2)}</div>
+          <div class="fit-metric-note">用于推理分割</div>
+        </div>
+      </div>
+
+      <div class="fit-content-grid">
+        <div class="fit-chart-wrap">
+          <div class="fit-chart-title">
+            <span>训练曲线</span>
+            <span>${escapeHtml(new Date(run.updated_at).toLocaleString('zh-CN'))}</span>
+          </div>
+          ${curve}
+        </div>
+        <div class="fit-table-wrap">
+          <div class="fit-table-title">
+            <span>最近 ${recentRows.length} 轮指标</span>
+            <span>最佳轮次以绿色标出</span>
+          </div>
+          <table class="fit-table">
+            <thead>
+              <tr>
+                <th>epoch</th>
+                <th>train loss</th>
+                <th>val loss</th>
+                <th>train Dice</th>
+                <th>val Dice</th>
+                <th>val IoU</th>
+                <th>阈值</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch(`${API_BASE}/api/stats`);
+      const data = await res.json();
+      updateStats(data);
+    } catch (e) {
+      console.error('加载统计失败:', e);
+    }
+  }
+
+  function updateStats(data) {
+    const total = data.total_analyses || 0;
+    const normal = data.normal_count || 0;
+    const findings = data.findings_detected || 0;
+    const avgTime = data.average_analysis_time || 0;
+    const rate = total > 0 ? ((findings / total) * 100).toFixed(1) : 0;
+
+    // 仪表盘统计
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-normal').textContent = normal;
+    document.getElementById('stat-findings').textContent = findings;
+    document.getElementById('stat-avgtime').textContent = avgTime + 's';
+    document.getElementById('stat-today').textContent = total; // 简化
+
+    // 统计页统计
+    document.getElementById('stat2-total').textContent = total;
+    document.getElementById('stat2-normal').textContent = normal;
+    document.getElementById('stat2-findings').textContent = findings;
+    document.getElementById('stat2-rate').textContent = rate + '%';
+
+    // 饼图更新
+    updateDonut(normal, findings, total);
+
+    // 柱状图
+    const bodyParts = data.body_part_distribution || {};
+    const maxCount = Math.max(...Object.values(bodyParts), 1);
+    const partsMap = {chest:'bar-chest', brain:'bar-brain', abdomen:'bar-abdomen'};
+    for (const [part, barId] of Object.entries(partsMap)) {
+      const count = bodyParts[part] || 0;
+      const pct = (count / maxCount * 100).toFixed(0);
+      const el = document.getElementById(barId);
+      if (el) {
+        el.style.width = pct + '%';
+        el.textContent = count;
+      }
+    }
+
+    // 风险分布
+    const risks = data.risk_distribution || {};
+    const riskContainer = document.getElementById('riskBars');
+    if (riskContainer) {
+      const maxRisk = Math.max(...Object.values(risks), 1);
+      riskContainer.innerHTML = [
+        {k:'low', label:'低风险', color:'#4caf50'},
+        {k:'medium', label:'中风险', color:'#ff9800'},
+        {k:'high', label:'高风险', color:'#f44336'}
+      ].map(item => {
+        const count = risks[item.k] || 0;
+        const pct = (count / maxRisk * 100).toFixed(0);
+        return `
+          <div class="bar-row">
+            <div class="bar-label">${item.label}</div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${pct}%;background:${item.color}">${count}</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+  }
+
+  function updateDonut(normal, findings, total) {
+    const circumference = 2 * Math.PI * 60; // ≈ 377
+    document.getElementById('donutTotal').textContent = total;
+
+    if (total === 0) {
+      document.getElementById('donutNormal').setAttribute('stroke-dasharray', `0 ${circumference}`);
+      document.getElementById('donutFinding').setAttribute('stroke-dasharray', `0 ${circumference}`);
+      return;
+    }
+
+    const normalArc = (normal / total) * circumference;
+    const findingArc = (findings / total) * circumference;
+
+    document.getElementById('donutNormal').setAttribute(
+      'stroke-dasharray', `${normalArc} ${circumference}`);
+
+    const findingEl = document.getElementById('donutFinding');
+    findingEl.setAttribute('stroke-dasharray', `${findingArc} ${circumference}`);
+    findingEl.setAttribute('transform', `rotate(${(normal / total) * 360 - 90} 80 80)`);
+  }
+
+  // ==================== 工具函数 ====================
+  function formatTime(isoStr) {
+    if (!isoStr) return '-';
+    try {
+      const d = new Date(isoStr);
+      return d.toLocaleString('zh-CN', {
+        month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch { return isoStr; }
+  }
+
+  function showToast(msg, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    const icons = {success:'✅', error:'❌', warning:'⚠️', info:'ℹ️'};
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `${icons[type] || 'ℹ️'} ${msg}`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.animation = 'slideIn 0.3s ease reverse';
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  }
+
+  function downloadReport() {
+    if (!currentResult) { showToast('请先进行分析', 'warning'); return; }
+    const report = currentResult.ai_report || '暂无报告';
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `医影智诊_${currentResult.filename}_报告.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('报告已下载', 'success');
+  }
+
+  function shareResult() {
+    if (!currentResult) { showToast('请先进行分析', 'warning'); return; }
+    const url = `${window.location.origin}/api/result/${currentResult.task_id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      showToast('结果链接已复制到剪贴板', 'success');
+    }).catch(() => {
+      showToast('复制失败，请手动复制', 'error');
+    });
+  }
+
+  // ==================== 智能体系统 ====================
+  
+  let ws = null;
+  let wsConnected = false;
+  let wsReconnectTimer = null;
+  let currentConversationId = null;
+  let chatHistory = [];
+  let watcherRunning = false;
+
+  // 初始化WebSocket连接
+  function initWebSocket() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
+    if (wsReconnectTimer) {
+      clearTimeout(wsReconnectTimer);
+      wsReconnectTimer = null;
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.port === '8001'
+      ? `${window.location.hostname}:8000`
+      : window.location.host;
+    const wsUrl = `${protocol}//${host}/ws`;
+    
+    try {
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        wsConnected = true;
+        document.getElementById('agent-ws-status').textContent = '已连接';
+        document.getElementById('agent-ws-connections').textContent = '1';
+        document.getElementById('dialogueStatus').textContent = '已连接';
+        console.log('WebSocket连接已建立');
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleWsMessage(msg);
+        } catch (e) {
+          console.error('WebSocket消息解析失败:', e);
+        }
+      };
+      
+      ws.onclose = () => {
+        wsConnected = false;
+        ws = null;
+        document.getElementById('agent-ws-status').textContent = '重连中';
+        document.getElementById('agent-ws-connections').textContent = '0';
+        document.getElementById('dialogueStatus').textContent = '重连中';
+        // 自动重连
+        wsReconnectTimer = setTimeout(initWebSocket, 3000);
+      };
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket错误:', error);
+        wsConnected = false;
+      };
+    } catch (e) {
+      console.error('WebSocket初始化失败:', e);
+    }
+  }
+
+  // 处理WebSocket消息
+  function handleWsMessage(msg) {
+    const type = msg.type;
+    
+    switch(type) {
+      case 'connected':
+        showToast('WebSocket已连接', 'success');
+        break;
+        
+      case 'notification':
+        showToast(msg.data?.message || '收到新通知', 'info');
+        break;
+        
+      case 'file_event':
+        if (msg.data?.type === 'new_file_detected') {
+          showToast(`发现新文件: ${msg.data.file?.name}`, 'info');
+          loadAgentStatus();
+        } else if (msg.data?.type === 'processing_completed') {
+          showToast(`文件分析完成: ${msg.data.file?.name}`, 'success');
+          loadAgentStatus();
+          loadHistory();
+        }
+        break;
+        
+      case 'dialogue_response':
+        // 对话回复由独立函数处理
+        break;
+        
+      case 'agent_status':
+        updateAgentUI(msg.data);
+        break;
+    }
+  }
+
+  // 加载智能体状态
+  async function loadAgentStatus() {
+    try {
+      const res = await fetch(`${API_BASE}/api/agent/status`);
+      const data = await res.json();
+      
+      if (data.error) {
+        document.getElementById('agentStatus').textContent = '未初始化';
+        return;
+      }
+      
+      document.getElementById('agentStatus').textContent = '在线';
+      
+      // 更新文件监控状态
+      const watcher = data.file_watcher || {};
+      document.getElementById('agent-watcher-state').textContent = 
+        watcher.state === 'running' ? '运行中' : '已停止';
+      document.getElementById('agent-watcher-files').textContent = 
+        `待处理: ${watcher.pending_count || 0}`;
+      watcherRunning = watcher.state === 'running';
+      updateWatcherButton();
+      
+      // 更新对话状态
+      const dialogue = data.dialogue || {};
+      document.getElementById('agent-dialogue-count').textContent = dialogue.total_conversations || 0;
+      document.getElementById('agent-dialogue-active').textContent = 
+        dialogue.has_analysis_context ? '有上下文' : '无上下文';
+      
+      // 更新规划状态
+      const planner = data.planner || {};
+      document.getElementById('agent-plan-count').textContent = planner.total_plans || 0;
+      
+      // 更新WebSocket连接数
+      const wsCount = data.orchestrator?.websocket_connections || 0;
+      document.getElementById('agent-ws-connections').textContent = wsCount;
+      const websocketReady = wsConnected || wsCount > 0;
+      document.getElementById('agent-ws-status').textContent =
+        websocketReady ? '已连接' : '未连接';
+      document.getElementById('dialogueStatus').textContent =
+        websocketReady ? '已连接' : '未连接';
+      
+    } catch (e) {
+      console.error('加载智能体状态失败:', e);
+      document.getElementById('agentStatus').textContent = '离线';
+    }
+  }
+
+  // 切换文件监控
+  async function toggleWatcher() {
+    const btn = document.getElementById('watcherToggleBtn');
+    const watchDir = document.getElementById('watchDirInput').value;
+    
+    try {
+      if (watcherRunning) {
+        await fetch(`${API_BASE}/api/agent/watcher/stop`, { method: 'POST' });
+        showToast('文件监控已停止', 'info');
+      } else {
+        await fetch(`${API_BASE}/api/agent/watcher/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ watch_dir: watchDir })
+        });
+        showToast('文件监控已启动', 'success');
+      }
+      watcherRunning = !watcherRunning;
+      updateWatcherButton();
+      loadAgentStatus();
+    } catch (e) {
+      showToast('操作失败: ' + e.message, 'error');
+    }
+  }
+
+  function updateWatcherButton() {
+    const btn = document.getElementById('watcherToggleBtn');
+    if (watcherRunning) {
+      btn.textContent = '⏸️ 停止监控';
+      btn.className = 'btn btn-danger';
+    } else {
+      btn.textContent = '▶️ 启动监控';
+      btn.className = 'btn btn-primary';
+    }
+  }
+
+  function openWatchFolder() {
+    showToast('请手动打开 backend/watched_folders 目录放入影像文件', 'info');
+  }
+
+  // 更新智能体UI
+  function updateAgentUI(data) {
+    if (!data) return;
+    // 根据实际数据结构更新UI
+    loadAgentStatus();
+  }
+
+  // ==================== 对话功能 ====================
+
+  // 加载对话列表
+  async function loadConversationList() {
+    try {
+      const res = await fetch(`${API_BASE}/api/agent/dialogue/conversations`);
+      const data = await res.json();
+      
+      const list = document.getElementById('conversationList');
+      
+      if (!data.conversations || data.conversations.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state" style="padding:20px;">
+            <div class="empty-icon" style="font-size:32px;">💬</div>
+            <div class="empty-title" style="font-size:13px;">暂无对话</div>
+          </div>
+        `;
+        return;
+      }
+      
+      list.innerHTML = data.conversations.map(conv => `
+        <div class="sidebar-item ${conv.id === currentConversationId ? 'active' : ''}" 
+             onclick="selectConversation('${conv.id}')">
+          <span class="icon">💬</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            ${conv.title}
+          </span>
+        </div>
+      `).join('');
+      
+    } catch (e) {
+      console.error('加载对话列表失败:', e);
+    }
+  }
+
+  // 创建新对话
+  async function newConversation() {
+    try {
+      const res = await fetch(`${API_BASE}/api/agent/dialogue/conversation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: `对话 ${new Date().toLocaleTimeString()}` })
+      });
+      const data = await res.json();
+      
+      currentConversationId = data.conversation_id;
+      chatHistory = [];
+      renderChatMessages();
+      loadConversationList();
+      showToast('新对话已创建', 'success');
+      
+    } catch (e) {
+      showToast('创建对话失败: ' + e.message, 'error');
+    }
+  }
+
+  // 选择对话
+  async function selectConversation(convId) {
+    currentConversationId = convId;
+    
+    try {
+      const res = await fetch(`${API_BASE}/api/agent/dialogue/history?conv_id=${convId}&limit=50`);
+      const data = await res.json();
+      
+      chatHistory = data.messages || [];
+      renderChatMessages();
+      loadConversationList();
+      
+    } catch (e) {
+      console.error('加载对话历史失败:', e);
+    }
+  }
+
+  // 发送消息
+  async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    input.value = '';
+    
+    // 添加用户消息
+    chatHistory.push({
+      role: 'user',
+      content: message,
+      timestamp: new Date().toISOString()
+    });
+    renderChatMessages();
+    
+    try {
+      const res = await fetch(`${API_BASE}/api/agent/dialogue/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_input: message,
+          conv_id: currentConversationId
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (data.success && data.assistant_message) {
+        chatHistory.push(data.assistant_message);
+        renderChatMessages();
+      } else {
+        chatHistory.push({
+          role: 'assistant',
+          content: '抱歉，回复失败。' + (data.error || ''),
+          timestamp: new Date().toISOString()
+        });
+        renderChatMessages();
+      }
+      
+    } catch (e) {
+      chatHistory.push({
+        role: 'assistant',
+        content: '网络错误，请稍后重试。',
+        timestamp: new Date().toISOString()
+      });
+      renderChatMessages();
+    }
+  }
+
+  // 渲染聊天消息
+  function renderChatMessages() {
+    const container = document.getElementById('chatMessages');
+    
+    if (chatHistory.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state" style="height:100%;display:flex;flex-direction:column;justify-content:center;">
+          <div class="empty-icon" style="font-size:48px;">🤖</div>
+          <div class="empty-title">开始与AI对话</div>
+          <div class="empty-desc">您可以针对分析结果进行追问，或咨询相关医学问题</div>
+        </div>
+      `;
+      return;
+    }
+    
+    container.innerHTML = chatHistory.map(msg => {
+      const isUser = msg.role === 'user';
+      const time = new Date(msg.timestamp).toLocaleTimeString();
+      
+      return `
+        <div style="display:flex;flex-direction:${isUser ? 'row-reverse' : 'row'};margin-bottom:16px;align-items:flex-start;">
+          <div style="width:36px;height:36px;border-radius:50%;background:${isUser ? 'var(--primary)' : 'var(--accent)'};display:flex;align-items:center;justify-content:center;margin-left:${isUser ? '8px' : '0'};margin-right:${isUser ? '0' : '8px'};flex-shrink:0;">
+            ${isUser ? '👤' : '🤖'}
+          </div>
+          <div style="max-width:70%;${isUser ? 'text-align:right' : ''}">
+            <div style="padding:10px 14px;border-radius:12px;background:${isUser ? 'var(--primary)' : 'var(--bg-panel)'};display:inline-block;line-height:1.5;font-size:13px;">
+              ${msg.content.replace(/\n/g, '<br>')}
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${time}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    // 滚动到底部
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // 快速提问
+  function askQuestion(question) {
+    document.getElementById('chatInput').value = question;
+    sendChatMessage();
+  }
+
+  // 清空当前对话
+  function clearCurrentChat() {
+    chatHistory = [];
+    renderChatMessages();
+    showToast('对话已清空', 'info');
+  }
+
+  // 清空上下文
+  function clearContext() {
+    fetch(`${API_BASE}/api/agent/dialogue/clear`, { method: 'POST' })
+      .then(() => {
+        document.getElementById('contextInfo').style.display = 'none';
+        showToast('上下文已解除', 'info');
+      })
+      .catch(e => showToast('操作失败', 'error'));
+  }
+
+  // 设置分析上下文（分析完成后调用）
+  function setAnalysisContext(result) {
+    fetch(`${API_BASE}/api/agent/dialogue/context`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(result)
+    })
+      .then(() => {
+        document.getElementById('contextInfo').style.display = 'block';
+        document.getElementById('contextFilename').textContent = result.filename;
+        showToast('已关联分析结果到对话', 'success');
+      })
+      .catch(e => console.error('设置上下文失败:', e));
+  }
+
+  // 页面切换增强
+  const originalSwitchPage = switchPage;
+  switchPage = function(name) {
+    originalSwitchPage(name);
+    
+    if (name === 'agents') {
+      loadAgentStatus();
+    } else if (name === 'dialogue') {
+      loadConversationList();
+      if (!currentConversationId) {
+        newConversation();
+      }
+      // 检查是否有上下文
+      if (currentResult) {
+        setAnalysisContext(currentResult);
+      }
+    }
+  };
+
+  // 页面加载时初始化
+  document.addEventListener('DOMContentLoaded', () => {
+    // 尝试初始化WebSocket（可能因跨域失败，不影响主功能）
+    initWebSocket();
+    
+    // 定期更新智能体状态
+    setInterval(() => {
+      if (document.getElementById('page-agents').classList.contains('active')) {
+        loadAgentStatus();
+      }
+    }, 10000);
+  });
+</script>
+</body>
+</html>

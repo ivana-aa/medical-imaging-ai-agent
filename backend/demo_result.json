@@ -1,0 +1,21 @@
+{
+  "engine": "阿里云百炼 qwen-vl-max",
+  "ai_keys": [],
+  "det_keys": [
+    "has_significant_finding",
+    "finding_count",
+    "primary_finding",
+    "normal_summary",
+    "overall_assessment",
+    "clinical_recommendation",
+    "risk_level",
+    "confidence",
+    "abnormal_findings"
+  ],
+  "clinical": "建议重新进行腹部CT扫描，优化扫描参数并确保患者在扫描过程中保持静止，必要时使用镇静剂以减少运动伪影，以便准确评估腹部病变。",
+  "overall": "该腹部CT影像质量极差，表现为严重模糊和伪影干扰，无法辨识任何正常或异常的解剖结构。目前无法做出有意义的诊断，需重新扫描以获取高质量图像。",
+  "normal": [
+    "无法识别正常解剖结构，因图像质量差，无法评估肝脏、脾脏、肾脏等腹部器官的形态与密度",
+    "肠道气体分布情况不明确，无法判断是否存在肠梗阻或扩张"
+  ]
+}

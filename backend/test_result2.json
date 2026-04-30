@@ -1,0 +1,18 @@
+{
+  "result_type": "dict",
+  "result_keys": [
+    "image_type",
+    "body_part",
+    "image_quality",
+    "normal_findings",
+    "abnormal_findings",
+    "has_significant_finding",
+    "risk_level",
+    "overall_assessment",
+    "clinical_recommendation",
+    "confidence_score",
+    "disclaimer"
+  ],
+  "clinical_recommendation": "请重新获取患者胸部正位X线片，确保图像清晰、无伪影，并在标准条件下拍摄。若临床需要，可考虑进一步行胸部CT检查以明确诊断。",
+  "has_result": true
+}

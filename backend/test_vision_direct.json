@@ -1,0 +1,21 @@
+{
+  "vision_result": {
+    "image_type": "X线片",
+    "body_part": "chest",
+    "image_quality": "图像模糊，对比度差，存在明显伪影，无法清晰显示肺部、心脏及纵隔结构，整体质量不佳，可能影响诊断准确性",
+    "normal_findings": [
+      "无法识别正常解剖结构，因图像质量过低，无法确认肺野、心脏轮廓、膈肌及肋骨等正常表现"
+    ],
+    "abnormal_findings": [],
+    "has_significant_finding": false,
+    "risk_level": "low",
+    "overall_assessment": "该胸部X线影像质量极差，呈现均匀的灰阶斑点状伪影，无明确解剖结构可辨识，无法评估肺部、心脏或胸膜是否存在异常。此类图像可能由于设备故障、曝光参数错误或图像传输问题导致，不具备临床诊断价值。",
+    "clinical_recommendation": "建议重新拍摄高质量胸部X线片，确保正确曝光和成像条件，以便进行准确评估。若患者有临床症状，应结合其他检查如CT进一步明确诊断。",
+    "confidence_score": 0.65,
+    "disclaimer": "本AI分析仅供参考，最终诊断结果请以专业临床医师的判断为准，必要时请结合其他临床检查"
+  },
+  "has_result": true,
+  "has_clinical": true,
+  "client": true,
+  "model": "qwen-vl-max"
+}

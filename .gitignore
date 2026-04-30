@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets
+.env
+*.key
+
+# Runtime data
+backend/uploads/
+backend/results/
+backend/watched_folders/
+*.log
+
+# Data and model weights
+Dataset/
+data/
+*.dcm
+*.tif
+*.tiff
+*.pt
+*.pth
+*.onnx

@@ -1,58 +1,69 @@
 @echo off
 chcp 65001 >nul
-title 医影智诊 - 医疗影像AI分析系统 v3.0 (智能体版)
+setlocal
 
-echo ============================================
-echo    医影智诊 - 医疗影像AI分析平台
-echo    智能体版 v3.0
-echo ============================================
-echo.
+title Medical Imaging Three-Model AI Platform
 
-:: 检查Python
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo [错误] 未找到Python，请先安装Python 3.8+
+set "PROJECT_DIR=%~dp0"
+set "BACKEND_DIR=%PROJECT_DIR%backend"
+set "VENV_PY=%PROJECT_DIR%.venv\Scripts\python.exe"
+if exist "%VENV_PY%" (
+    set "PYTHON_EXE=%VENV_PY%"
+) else (
+    echo [ERROR] Virtual environment was not found.
+    echo Run setup.bat once, then run start.bat again.
     pause
     exit /b 1
 )
 
-:: 进入后端目录
-cd /d "%~dp0backend"
+set "PYTHONPATH=%BACKEND_DIR%;%PROJECT_DIR%self_supervised_learning_project\src"
 
-:: 检查依赖
-echo [1/4] 检查并安装依赖...
-pip install -r requirements.txt -q --no-warn-script-location
-
-:: 创建必要目录
-echo [2/4] 创建必要目录...
-if not exist "uploads" mkdir uploads
-if not exist "results" mkdir results
-if not exist "watched_folders" mkdir watched_folders
-
-:: 启动服务
-echo.
-echo [3/4] 启动后端服务...
-echo.
 echo ============================================
-echo   医影智诊 v3.0 智能体系统
-echo ============================================
-echo   前端界面:    http://localhost:8000
-echo   API文档:     http://localhost:8000/docs
-echo   WebSocket:   ws://localhost:8000/ws
-echo   智能体:      FileWatcher | Dialogue | Planner
+echo   Medical Imaging Three-Model AI Platform
 echo ============================================
 echo.
-echo   智能体功能：
-echo   - 文件夹自动监控分析
-echo   - AI多轮对话问答
-echo   - 任务规划执行
-echo.
-echo   按 Ctrl+C 停止服务
-echo ============================================
+echo Project: %PROJECT_DIR%
+echo Backend: %BACKEND_DIR%
+echo Python:  %PYTHON_EXE%
+echo URL:     http://localhost:8000/
 echo.
 
-start "" http://localhost:8000
+if not exist "%BACKEND_DIR%\main.py" (
+    echo [ERROR] backend\main.py was not found.
+    echo Please run this file from the medical-imaging-ai-agent folder.
+    pause
+    exit /b 1
+)
 
-python main.py
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/health' -UseBasicParsing -TimeoutSec 2; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }"
 
+if "%ERRORLEVEL%"=="0" (
+    echo [OK] Server is already running on http://localhost:8000/
+    start "" "http://localhost:8000/"
+    echo.
+    echo You can close this window.
+    pause
+    exit /b 0
+)
+
+echo [1/3] Preparing folders...
+if not exist "%BACKEND_DIR%\uploads" mkdir "%BACKEND_DIR%\uploads"
+if not exist "%BACKEND_DIR%\results" mkdir "%BACKEND_DIR%\results"
+if not exist "%BACKEND_DIR%\watched_folders" mkdir "%BACKEND_DIR%\watched_folders"
+
+echo [2/3] Opening browser...
+start "" powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Sleep -Seconds 4; Start-Process 'http://localhost:8000/'"
+
+echo [3/3] Starting backend server...
+echo.
+echo Keep this window open while using the app.
+echo Press Ctrl+C in this window to stop the server.
+echo.
+
+cd /d "%BACKEND_DIR%"
+"%PYTHON_EXE%" -m uvicorn main:app --host 127.0.0.1 --port 8000
+
+echo.
+echo Server stopped.
 pause

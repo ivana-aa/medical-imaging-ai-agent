@@ -45,7 +45,13 @@ class Message:
     metadata: Dict = field(default_factory=dict)
     
     @classmethod
-    def create(cls, role: str, content: str, message_type: str = "text", metadata: Dict = None) -> 'Message':
+    def create(
+        cls,
+        role: str,
+        content: str,
+        message_type: str = "text",
+        metadata: Optional[Dict] = None,
+    ) -> 'Message':
         return cls(
             id=str(uuid.uuid4()),
             role=role,
@@ -68,7 +74,7 @@ class Conversation:
     is_active: bool = True
     
     @classmethod
-    def create(cls, title: str = None) -> 'Conversation':
+    def create(cls, title: Optional[str] = None) -> 'Conversation':
         now = datetime.now().isoformat()
         return cls(
             id=str(uuid.uuid4()),
@@ -135,7 +141,7 @@ class DialogueAgent:
         
         logger.info("DialogueAgent 初始化完成")
 
-    def create_conversation(self, title: str = None) -> str:
+    def create_conversation(self, title: Optional[str] = None) -> str:
         """创建新对话会话"""
         conv = Conversation.create(title)
         with self._lock:
@@ -175,12 +181,14 @@ class DialogueAgent:
         role: str, 
         content: str, 
         message_type: str = "text",
-        metadata: Dict = None,
-        conv_id: str = None
+        metadata: Optional[Dict] = None,
+        conv_id: Optional[str] = None
     ) -> Optional[Message]:
         """添加消息到对话"""
         if not conv_id:
             conv_id = self.active_conversation_id
+        if not conv_id:
+            return None
             
         with self._lock:
             conv = self.conversations.get(conv_id)
@@ -231,8 +239,8 @@ class DialogueAgent:
     def process_user_message(
         self, 
         user_input: str, 
-        conv_id: str = None,
-        analysis_context: Dict = None
+        conv_id: Optional[str] = None,
+        analysis_context: Optional[Dict] = None
     ) -> Dict:
         """
         处理用户消息并生成回复
@@ -268,6 +276,8 @@ class DialogueAgent:
             metadata=response.get('metadata', {}),
             conv_id=conv_id
         )
+        if not assistant_msg:
+            return {'success': False, 'error': '鏃犳硶娣诲姞鍔╂墜娑堟伅'}
         
         return {
             'success': True,
@@ -471,8 +481,12 @@ class DialogueAgent:
             'suggestions': suggestions
         }
 
-    def get_conversation_history(self, conv_id: str, limit: int = 20) -> List[Dict]:
+    def get_conversation_history(self, conv_id: Optional[str] = None, limit: int = 20) -> List[Dict]:
         """获取对话历史"""
+        if not conv_id:
+            conv_id = self.active_conversation_id
+        if not conv_id:
+            return []
         with self._lock:
             conv = self.conversations.get(conv_id)
             if not conv:

@@ -3,23 +3,34 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.venv*/
 
 # Secrets
 .env
 *.key
+*.pem
 
 # Runtime data
 backend/uploads/
 backend/results/
 backend/watched_folders/
 *.log
+*.pid
 
-# Data and model weights
+# Dataset is intentionally not published.
 Dataset/
+!Dataset/
+!Dataset/README.md
 data/
 *.dcm
 *.tif
 *.tiff
-*.pt
-*.pth
-*.onnx
+
+# Experiment outputs are excluded; released inference weights live in models/weights.
+original_unet_project/runs/
+attention_unet_project/runs/
+self_supervised_learning_project/runs/
+
+# Local exports and scratch data
+*.zip
+upload_test_response*.json

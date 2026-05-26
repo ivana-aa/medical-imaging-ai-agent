@@ -1,8 +1,8 @@
 """
 Local U-Net segmentation agent.
 
-This module loads the U-Net checkpoint trained in D:\\hz and exposes a small
-medical-image segmentation analysis layer for the existing FastAPI app.
+This module loads the bundled U-Net checkpoint and exposes a small
+medical-image segmentation analysis layer for the FastAPI app.
 """
 
 import base64
@@ -13,19 +13,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from PIL import Image, ImageDraw
 
-try:
-    import torch
-    import torch.nn as nn
-    import torch.nn.functional as F
-
-    TORCH_AVAILABLE = True
-except Exception:
-    torch = None
-    nn = None
-    F = None
-    TORCH_AVAILABLE = False
+TORCH_AVAILABLE = True
 
 
 class DoubleConv(nn.Module):
@@ -108,13 +101,10 @@ def _default_model_path() -> Path:
     if env_path:
         return Path(env_path)
 
+    repository_root = Path(__file__).resolve().parents[2]
     candidates = [
-        Path(r"D:\hz\runs\unet_agent_seed_stability\seed_011\best_unet.pt"),
-        Path(r"D:\hz\runs\unet_agent_combo_focal_5ep_wide_thr\best_unet.pt"),
-        Path(r"D:\hz\runs\unet_agent_finetune_lr1e4\best_unet.pt"),
-        Path(r"D:\hz\runs\unet_agent_es\best_unet.pt"),
-        Path(r"D:\hz\runs\unet_agent\best_unet.pt"),
-        Path(r"D:\hz\runs\unet\best_unet.pt"),
+        repository_root / "models" / "weights" / "original_unet" / "best_unet.pt",
+        repository_root / "original_unet_project" / "runs" / "unet_agent_seed_stability" / "seed_011" / "best_unet.pt",
     ]
     for candidate in candidates:
         if candidate.exists():

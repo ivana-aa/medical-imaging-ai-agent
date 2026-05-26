@@ -1,0 +1,50 @@
+project:
+  seed: 42
+  output_dir: runs/decoder_hard_finetune_mim_cpu100_hard_label10_intensity_aug_256
+
+data:
+  root: ../Dataset
+  train_split: train
+  val_split: val
+  image_dir_name: images
+  label_dir_name: labels
+  image_channels: 1
+  image_size: 256
+  batch_size: 2
+  num_workers: 0
+  train_fraction: 0.10
+  subset_seed: 42
+
+augment:
+  enabled: true
+  rotation_degrees: 0
+  translate_fraction: 0
+  scale_range: [1.0, 1.0]
+  horizontal_flip_p: 0.0
+  vertical_flip_p: 0.0
+  brightness: 0.08
+  contrast: 0.08
+  noise_std: 0.01
+
+model:
+  backbone: resnet18
+  checkpoint: runs/masked_autoencoder_cpu100_hard/best.pt
+  freeze_encoder: false
+
+training:
+  epochs: 52
+  encoder_lr: 0.000005
+  decoder_lr: 0.0001
+  weight_decay: 0.0001
+  loss_type: bce_dice
+  dice_weight: 1.0
+  threshold: 0.425
+
+hard_mining:
+  threshold: 0.425
+  positive_weight: 1.5
+  low_dice_cutoff: 0.85
+  low_dice_weight: 4.0
+  empty_positive_weight: 8.0
+  max_weight: 8.0
+  num_samples_multiplier: 1.0

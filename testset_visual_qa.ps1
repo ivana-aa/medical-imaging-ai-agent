@@ -1,6 +1,6 @@
 param(
-    [string]$DatasetDir = "D:\hz\Dataset\test",
-    [string]$OutputDir = "D:\hz\runs\unet_agent_current\test_visual_qa",
+    [string]$DatasetDir = "",
+    [string]$OutputDir = "",
     [string]$ApiUrl = "http://localhost:8000/api/agent/unet/analyze",
     [double]$Threshold = -1.0,
     [int]$Limit = 0,
@@ -8,6 +8,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+$ProjectRoot = $PSScriptRoot
+if (-not $DatasetDir) {
+    $DatasetDir = Join-Path $ProjectRoot "Dataset\test"
+}
+if (-not $OutputDir) {
+    $OutputDir = Join-Path $ProjectRoot "original_unet_project\runs\unet_agent_current\test_visual_qa"
+}
 
 $imagesDir = Join-Path $DatasetDir "images"
 $labelsDir = Join-Path $DatasetDir "labels"

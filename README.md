@@ -1,66 +1,88 @@
-# 医疗影像 AI 分析智能体原型
+# 医疗影像三模型分割与 AI 分析平台
 
-一个面向医学影像二值分割的本地 AI 分析原型。项目使用 PyTorch U-Net 完成候选区域分割，并将分割面积、阈值、置信度、风险提示等结构化输出接入通义千问 API，生成医学影像辅助分析报告。
+这是一个面向 CT 医学影像二值分割的本地可运行原型，统一集成三个真实推理模型：
 
-## 功能
+- 初始 U-Net 基线模型
+- Attention U-Net 精细分割模型
+- 自监督 MIM 预训练 + 少量标注 hard-mining 微调的 ResNet-UNet ensemble
 
-- 医学影像上传与预览
-- U-Net 二值分割推理
-- 分割 mask、叠加图、概率图展示
-- Dice、IoU、Recall、Precision、FP/FN 等指标实验分析
-- 阈值搜索与低漏检部署策略
-- 通义千问结构化报告生成
-- 前后端本地联调页面
+前端支持先选模型再上传影像，后端返回分割 mask、叠加图、概率图、候选区域位置、面积比例、风险等级和推理耗时。配置 API Key 后，还可生成中文辅助分析报告与临床建议提示。
 
-## 项目结果
+## 核心指标
 
-- 验证集最佳 Dice：0.9407
-- 测试集 Dice：约 0.9464
-- 测试集 IoU：约 0.9002
-- 部署阈值：0.36
-- 低漏检优化：测试集 FN 从 33339 降至 29868
+| 模型 | Test Dice | Test IoU | Precision | Recall | 部署阈值 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 初始 U-Net | 0.94581 | 0.89933 | 0.94949 | 0.94365 | 0.36 |
+| Attention U-Net | 0.95580 | 0.91630 | 0.94370 | 0.96860 | 0.23 |
+| 自监督 ResNet-UNet Ensemble | 0.92074 | 0.86022 | 0.89812 | 0.95396 | 0.335 |
 
-## 目录
+自监督模型还使用空掩膜 fallback 阈值 `0.0004` 和最小连通域面积 `50`。
+
+## 仓库结构
 
 ```text
-backend/                 FastAPI 后端与 U-Net/LLM 接口
-backend/agents/          本地 U-Net 推理 agent
-frontend/                单页前端界面
-train_unet.py            U-Net 训练脚本
-testset_visual_qa.ps1    测试集可视化 QA 脚本
-docs/                    实验报告
+backend/                           FastAPI API、三模型 registry 与报告服务
+frontend/                          单页可视化前端
+models/weights/                    已训练的部署权重（Git LFS）
+original_unet_project/             初始 U-Net 独立项目源码
+attention_unet_project/            Attention U-Net 独立项目源码
+self_supervised_learning_project/  自监督学习独立项目源码、配置与脚本
+Dataset/README.md                  数据集放置规范（不包含原始影像）
+setup.bat                          Windows 首次安装
+start.bat                          Windows 一键启动
 ```
 
-## 本地运行
+## 下载与启动
 
-安装依赖：
+模型权重由 Git LFS 管理。克隆前请安装 [Git LFS](https://git-lfs.com/) 和 Python 3.10 或更高版本。
 
-```bash
-pip install -r backend/requirements.txt
-pip install torch torchvision numpy pillow tqdm
+```powershell
+git lfs install
+git clone https://github.com/ivana-aa/medical-imaging-ai-agent.git
+cd medical-imaging-ai-agent
+git lfs pull
+.\setup.bat
+.\start.bat
 ```
 
-设置通义千问 API Key：
-
-```bash
-set OPENAI_API_KEY=your_dashscope_or_qwen_api_key
-```
-
-启动后端：
-
-```bash
-cd backend
-python main.py
-```
-
-浏览器打开：
+浏览器访问：
 
 ```text
 http://localhost:8000/
 ```
 
-## 说明
+部署权重已包含在仓库的 LFS 内容中，因此无需数据集即可上传你自己的影像文件运行推理。
 
-本仓库不包含原始医学影像数据、用户上传文件、运行日志、模型权重和任何 API Key。模型权重路径可通过环境变量配置。
+## 可选：报告生成
 
-本项目仅用于算法学习、项目展示和辅助分析原型验证，不可作为临床诊断依据。
+不配置 API Key 时，三个本地分割模型与可视化功能仍可正常使用。若需要对话和辅助报告生成，可在启动前设置通义千问兼容接口的 Key：
+
+```powershell
+$env:OPENAI_API_KEY="your_dashscope_or_qwen_api_key"
+.\start.bat
+```
+
+不要提交 `.env` 或任何真实密钥。
+
+## 可选：训练与评估
+
+原始医学影像数据不在公开仓库中。若你具有合法授权，可按 [Dataset/README.md](Dataset/README.md) 的目录结构将数据放入 `Dataset/`，再进入三个项目目录运行其训练或评估脚本。
+
+```text
+Dataset/
+  train/images/  train/labels/
+  val/images/    val/labels/
+  test/images/   test/labels/
+```
+
+自监督项目训练代码独立于初始 U-Net 和 Attention U-Net 项目；统一前端仅在推理阶段加载各项目训练得到的部署权重。
+
+## 接口
+
+- `GET /api/segmentation/models`：返回三个模型状态、指标、checkpoint 与默认阈值。
+- `POST /api/segmentation/analyze`：上传图片并指定 `model_id`，返回真实推理结果。
+- `/api/agent/unet/*`：保留原始 U-Net 兼容接口。
+
+## 使用边界
+
+本项目仅用于算法学习、项目展示和辅助分析原型验证。模型输出及生成的临床建议必须结合原始影像与临床背景由专业人员复核，不能替代医生诊断。

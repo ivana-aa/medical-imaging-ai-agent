@@ -1,0 +1,24 @@
+﻿{
+  "checkpoint": "D:\\hz\\attention_unet_project\\runs\\attention_unet_finetune_lr1e4_seed42\\best_attention_unet.pt",
+  "threshold": 0.23,
+  "tta": "flip",
+  "postprocess": {
+    "enabled": false,
+    "close_iters": 0,
+    "open_iters": 0,
+    "fill_holes": false,
+    "min_area": 0,
+    "min_area_ratio": 0.0
+  },
+  "selected_by": "validation threshold search with flip TTA and disabled postprocess",
+  "val_dice": 0.9527,
+  "val_iou": 0.9120,
+  "test_dice": 0.9558,
+  "test_iou": 0.9163,
+  "test_precision": 0.9437,
+  "test_recall": 0.9686,
+  "files": {
+    "val_search": "D:\\hz\\attention_unet_project\\runs\\attention_unet_finetune_lr1e4_seed42\\eval_val_search_tta_flip.json",
+    "test_eval": "D:\\hz\\attention_unet_project\\runs\\attention_unet_finetune_lr1e4_seed42\\eval_test_thr023_no_post_tta_flip.json"
+  }
+}

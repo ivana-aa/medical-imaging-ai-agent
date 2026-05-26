@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 import numpy as np
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, WebSocket
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Query, WebSocket, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -24,7 +24,7 @@ from pydantic import BaseModel
 
 # 尝试导入可选依赖
 try:
-    import pydicom
+    import pydicom  # type: ignore[import-not-found]
     PYDICOM_AVAILABLE = True
 except ImportError:
     PYDICOM_AVAILABLE = False
@@ -37,23 +37,34 @@ except ImportError:
     PIL_AVAILABLE = False
 
 try:
-    import cv2
+    import cv2  # type: ignore[import-not-found]
     CV2_AVAILABLE = True
 except ImportError:
     CV2_AVAILABLE = False
 
+OpenAI: Any = None
 try:
-    from openai import OpenAI
+    from openai import OpenAI as OpenAIClient
+    OpenAI = OpenAIClient
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
 
+create_unet_agent: Any = None
 try:
-    from agents.unet_segmenter import create_unet_agent
+    from agents.unet_segmenter import create_unet_agent as create_unet_agent_func
+    create_unet_agent = create_unet_agent_func
     UNET_AGENT_AVAILABLE = True
 except Exception as e:
-    create_unet_agent = None
     UNET_AGENT_AVAILABLE = False
+
+create_segmentation_registry: Any = None
+try:
+    from agents.segmentation_registry import create_segmentation_registry as create_segmentation_registry_func
+    create_segmentation_registry = create_segmentation_registry_func
+    SEGMENTATION_REGISTRY_AVAILABLE = True
+except Exception as e:
+    SEGMENTATION_REGISTRY_AVAILABLE = False
 
 # 配置日志（必须在API客户端初始化之前）
 logging.basicConfig(level=logging.INFO)
@@ -69,8 +80,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"  # 阿里云百炼端点
 
 # 初始化客户端（OpenAI兼容模式）
-openai_client = None
-if OPENAI_AVAILABLE and OPENAI_API_KEY:
+openai_client: Any = None
+if OPENAI_AVAILABLE and OPENAI_API_KEY and OpenAI is not None:
     try:
         openai_client = OpenAI(
             api_key=OPENAI_API_KEY,
@@ -186,7 +197,7 @@ class OpenAIVisionAnalyzer:
   "disclaimer": "本AI分析仅供参考，最终诊断结果请以专业临床医师的判断为准，必要时请结合其他临床检查"
 }"""
 
-    def __init__(self, client, api_key: str):
+    def __init__(self, client: Any, api_key: str):
         self.client = client
         self.api_key = api_key
         self.model = "qwen-vl-max"   # 阿里云百炼最强视觉模型
@@ -223,7 +234,7 @@ class OpenAIVisionAnalyzer:
             logger.error(f"图像转base64失败: {e}")
             return ""
 
-    def call_vision_api(self, image_b64: str, filename: str, analysis_type: str) -> Dict:
+    def call_vision_api(self, image_b64: str, filename: str, analysis_type: str) -> Optional[Dict[str, Any]]:
         """调用 通义千问 qwen-vl-max Vision API 进行图像分析"""
         if not self.client:
             return None
@@ -252,7 +263,7 @@ class OpenAIVisionAnalyzer:
                 temperature=0.1
             )
 
-            content = response.choices[0].message.content.strip()
+            content = (response.choices[0].message.content or "").strip()
             # 清理JSON前后的markdown标记
             if "```" in content:
                 lines = content.split("\n")
@@ -626,8 +637,8 @@ class OpenAIVisionAnalyzer:
 
 # 全局分析器实例
 analyzer = OpenAIVisionAnalyzer(openai_client, OPENAI_API_KEY)
-analyzer = OpenAIVisionAnalyzer(openai_client, OPENAI_API_KEY)
 unet_agent = create_unet_agent() if create_unet_agent else None
+segmentation_registry = create_segmentation_registry() if create_segmentation_registry else None
 
 
 def _metric_float(value: Any, default: float = 0.0) -> float:
@@ -654,6 +665,101 @@ def _risk_label(risk_level: str) -> str:
         "medium": "中等风险",
         "high": "高风险",
     }.get(risk_level or "low", "低风险")
+
+
+def _body_part_label(body_part: Optional[str]) -> str:
+    return {
+        "chest": "胸部",
+        "brain": "头颅/脑部",
+        "abdomen": "腹部",
+        "bone": "骨骼",
+        "other": "当前部位",
+    }.get(body_part or "other", body_part or "当前部位")
+
+
+def _build_segmentation_clinical_recommendation(
+    segmentation: Dict[str, Any],
+    metrics: Dict[str, Any],
+    body_part: Optional[str] = None,
+) -> str:
+    model_name = segmentation.get("model_name") or "当前分割模型"
+    part_label = _body_part_label(body_part)
+    risk_level = metrics.get("risk_level", "low")
+    risk_label = _risk_label(risk_level)
+    area_percent = _metric_float(metrics.get("area_percent"))
+    mean_probability = _metric_float(metrics.get("mean_probability"))
+    max_probability = _metric_float(metrics.get("max_probability"))
+    has_candidate = bool(metrics.get("has_candidate_region"))
+
+    if not segmentation.get("success"):
+        return (
+            "本次模型推理未成功生成可靠分割结果。建议先确认上传影像质量、格式和模型加载状态，"
+            "必要时重新上传清晰图像或更换模型复测；临床判断仍应以原始影像和医生评估为准。"
+        )
+
+    common_review = (
+        f"请将{model_name}输出的分割叠加图、mask、概率图与{part_label}原始影像逐层对照，"
+        "并结合患者症状、体征、既往检查和实验室结果综合判断。"
+    )
+
+    if has_candidate and risk_level == "high":
+        return (
+            f"当前模型提示{risk_label}候选区域，面积占比约 {area_percent:.2f}%，"
+            f"掩膜内平均概率 {mean_probability:.4f}，最高概率 {max_probability:.4f}。"
+            f"{common_review}"
+            "建议尽快由影像科或相关专科医生复核该区域是否与真实病变、伪影或正常解剖结构相符；"
+            "若患者存在明显不适、急性症状或临床高度怀疑，应优先安排进一步检查或急诊评估。"
+            "在医生确认前，不建议仅凭模型结果直接做诊断或治疗决策。"
+        )
+    if has_candidate and risk_level == "medium":
+        return (
+            f"当前模型提示{risk_label}候选区域，面积占比约 {area_percent:.2f}%，"
+            f"掩膜内平均概率 {mean_probability:.4f}。{common_review}"
+            "建议结合临床关注部位进行人工复核；如候选区域与症状或既往异常一致，"
+            "可考虑补充更有针对性的影像检查、对比既往片或安排短期随访。"
+        )
+    if has_candidate:
+        return (
+            f"当前模型检出低风险候选区域，面积占比约 {area_percent:.2f}%，"
+            f"掩膜内平均概率 {mean_probability:.4f}。{common_review}"
+            "建议作为辅助定位线索保留，由医生判断是否需要进一步观察；若患者没有相关症状且原始影像无可疑表现，"
+            "可按常规流程随访。"
+        )
+    return (
+        f"当前阈值下未检出明确候选分割区域，模型风险提示为{risk_label}，最高预测概率 {max_probability:.4f}。"
+        "这说明本模型在该输入上未发现稳定阳性区域，但不能完全排除细小、边界不清或模型不敏感类型的异常。"
+        f"建议医生仍结合{part_label}原始影像和临床资料复核；如患者症状持续、风险因素较高或临床怀疑较强，"
+        "应考虑进一步检查、复查或使用其他影像序列/模型进行辅助评估。"
+    )
+
+
+def _build_segmentation_ai_report(detection: Dict[str, Any], segmentation: Dict[str, Any]) -> str:
+    model = detection.get("segmentation_model", {})
+    metrics = segmentation.get("metrics", {}) if segmentation.get("success") else {}
+    bbox = metrics.get("bbox") or {}
+    bbox_text = (
+        f"x={bbox.get('x_min', '-')}-{bbox.get('x_max', '-')}, "
+        f"y={bbox.get('y_min', '-')}-{bbox.get('y_max', '-')}"
+        if bbox
+        else "无"
+    )
+    return (
+        f"{model.get('model_name') or segmentation.get('model_name', '分割模型')} 分割分析已完成。\n\n"
+        "【AI分析结论】\n"
+        f"{detection.get('overall_assessment', '')}\n\n"
+        "【量化指标】\n"
+        f"- 风险等级：{_risk_label(detection.get('risk_level', 'low'))}\n"
+        f"- 候选区域面积占比：{_metric_float(metrics.get('area_percent')):.2f}%\n"
+        f"- 阳性像素：{_metric_int(metrics.get('positive_pixels'))} / {_metric_int(metrics.get('total_pixels'))}\n"
+        f"- 平均概率：{_metric_float(metrics.get('mean_probability')):.4f}\n"
+        f"- 最大概率：{_metric_float(metrics.get('max_probability')):.4f}\n"
+        f"- 候选框：{bbox_text}\n"
+        f"- 阈值：{_metric_float(segmentation.get('threshold')):.4f}\n\n"
+        "【临床建议】\n"
+        f"{detection.get('clinical_recommendation', '')}\n\n"
+        "【安全说明】\n"
+        "以上内容由本地分割模型和规则层自动生成，仅作为影像辅助筛查与定位参考，不能替代医生诊断。"
+    )
 
 
 def _build_unet_structured_payload(task_id: str, filename: str, segmentation: Dict) -> Dict:
@@ -872,7 +978,7 @@ def generate_unet_llm_report(task_id: str, filename: str, segmentation: Dict) ->
             temperature=0.2,
             max_tokens=1200,
         )
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content or ""
         parsed = _parse_qwen_json(content)
         if not isinstance(parsed, dict):
             raise ValueError("qwen_response_is_not_valid_json")
@@ -1072,7 +1178,12 @@ def build_preview_payload(content: bytes, filename: str) -> Dict[str, Any]:
         }
 
 
-RUNS_ROOT = Path(os.environ.get("UNET_RUNS_DIR", r"D:\hz\runs"))
+RUNS_ROOT = Path(
+    os.environ.get(
+        "UNET_RUNS_DIR",
+        str(Path(__file__).resolve().parents[1] / "original_unet_project" / "runs"),
+    )
+)
 PREFERRED_TRAINING_RUNS = [
     "unet_agent_current",
     "unet_agent_finetune_lr1e4",
@@ -1296,7 +1407,8 @@ async def health_check():
             "opencv": CV2_AVAILABLE,
             "qwen_vl_vision": openai_status,
             "openai_sdk": OPENAI_AVAILABLE,
-            "local_unet_agent": bool(unet_agent and unet_agent.status().get("loaded"))
+            "local_unet_agent": bool(unet_agent and unet_agent.status().get("loaded")),
+            "segmentation_registry": bool(segmentation_registry)
         }
     }
 
@@ -1305,7 +1417,8 @@ async def health_check():
 async def preview_image(file: UploadFile = File(...)):
     """Return a browser-safe PNG preview and dimensions for DICOM/TIFF/regular images."""
     content = await file.read()
-    payload = build_preview_payload(content, file.filename)
+    filename = file.filename or "uploaded_image"
+    payload = build_preview_payload(content, filename)
     return JSONResponse(content=payload)
 
 
@@ -1323,7 +1436,8 @@ async def upload_and_analyze(
 ):
     """上传影像并立即分析（OpenAI Vision驱动）"""
 
-    suffix = Path(file.filename).suffix.lower()
+    filename = file.filename or "uploaded_image"
+    suffix = Path(filename).suffix.lower()
     if suffix not in OpenAIVisionAnalyzer.SUPPORTED_FORMATS:
         raise HTTPException(
             status_code=400,
@@ -1345,10 +1459,10 @@ async def upload_and_analyze(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"文件保存失败: {e}")
 
-    result = analyzer.analyze(save_path, file.filename, analysis_type, sensitivity)
+    result = analyzer.analyze(save_path, filename, analysis_type, sensitivity)
     if result.get("success"):
         result["task_id"] = task_id
-        result = enrich_with_unet_segmentation(result, save_path, file.filename)
+        result = enrich_with_unet_segmentation(result, save_path, filename)
 
     if result['success']:
         result['task_id'] = task_id
@@ -1362,7 +1476,7 @@ async def upload_and_analyze(
         return JSONResponse(content={
             "success": True,
             "task_id": task_id,
-            "filename": file.filename,
+            "filename": filename,
             "file_type": result.get('file_type', 'Unknown'),
             "body_part": result.get('body_part', 'unknown'),
             "analysis_time": result.get('analysis_time', 0),
@@ -1630,6 +1744,156 @@ async def get_agent_overview():
     return orchestrator.get_system_overview()
 
 
+def _build_segmentation_detection(segmentation: Dict[str, Any], body_part: Optional[str] = None) -> Dict[str, Any]:
+    metrics = segmentation.get("metrics", {}) if segmentation.get("success") else {}
+    model_summary = {
+        "available": bool(segmentation.get("success")),
+        "model_id": segmentation.get("model_id", ""),
+        "model_name": segmentation.get("model_name", ""),
+        "architecture": segmentation.get("architecture", ""),
+        "training_type": segmentation.get("training_type", ""),
+        "threshold": segmentation.get("threshold", 0),
+        "area_percent": metrics.get("area_percent", 0),
+        "mean_probability": metrics.get("mean_probability", 0),
+        "max_probability": metrics.get("max_probability", 0),
+        "bbox": metrics.get("bbox"),
+        "has_candidate_region": metrics.get("has_candidate_region", False),
+        "risk_level": metrics.get("risk_level", "low"),
+        "inference_time_ms": segmentation.get("inference_time_ms", 0),
+    }
+    detection = {
+        "risk_level": metrics.get("risk_level", "low"),
+        "has_significant_finding": bool(metrics.get("has_candidate_region")),
+        "finding_count": 1 if metrics.get("has_candidate_region") else 0,
+        "primary_finding": None,
+        "normal_summary": [],
+        "overall_assessment": "",
+        "clinical_recommendation": _build_segmentation_clinical_recommendation(segmentation, metrics, body_part),
+        "segmentation_model": model_summary,
+        "unet_segmentation": model_summary,
+    }
+    if metrics.get("has_candidate_region"):
+        bbox = metrics.get("bbox") or {}
+        detection["primary_finding"] = {
+            "type": f"{segmentation.get('model_name', '分割模型')}候选区域",
+            "location": f"x={bbox.get('x_min', '-')}-{bbox.get('x_max', '-')}, y={bbox.get('y_min', '-')}-{bbox.get('y_max', '-')}",
+            "description": f"模型标记的候选区域约占全图 {metrics.get('area_percent', 0)}%。",
+            "severity": "需要复核",
+            "confidence": metrics.get("mean_probability", 0),
+        }
+        detection["abnormal_findings"] = [detection["primary_finding"]]
+        detection["overall_assessment"] = (
+            f"{segmentation.get('model_name', '分割模型')}检测到候选分割区域，"
+            f"面积占比约 {metrics.get('area_percent', 0)}%，"
+            f"掩膜内平均概率为 {metrics.get('mean_probability', 0)}。"
+            "该结果提示需要重点复核对应区域，但不是诊断结论。"
+        )
+    else:
+        detection["normal_summary"] = ["当前阈值下未检测到明确候选分割区域。"]
+        detection["overall_assessment"] = (
+            f"{segmentation.get('model_name', '分割模型')}在当前阈值下未检测到明确候选区域，"
+            "模型风险提示较低；仍需结合原始影像和临床资料判断。"
+        )
+        detection["abnormal_findings"] = []
+    return detection
+
+
+@app.get("/api/segmentation/models")
+async def get_segmentation_models():
+    """Return unified status for the three local segmentation models."""
+    if not segmentation_registry:
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "models": [], "error": "Segmentation registry is unavailable."},
+        )
+    return JSONResponse(content={"success": True, "models": segmentation_registry.list_models()})
+
+
+@app.post("/api/segmentation/analyze")
+async def analyze_with_segmentation_model(
+    file: UploadFile = File(...),
+    model_id: str = Form(default="ssl_current"),
+    threshold: Optional[float] = Form(default=None)
+):
+    """Analyze one image with a selected local segmentation model."""
+    if not segmentation_registry:
+        raise HTTPException(status_code=503, detail="Segmentation registry is unavailable.")
+
+    filename = file.filename or "uploaded_image"
+    suffix = Path(filename).suffix.lower()
+    if suffix not in OpenAIVisionAnalyzer.SUPPORTED_FORMATS:
+        raise HTTPException(status_code=400, detail=f"Unsupported file format: {suffix}")
+
+    task_id = str(uuid.uuid4())
+    save_path = UPLOAD_DIR / f"{task_id}{suffix}"
+    content = await file.read()
+    if len(content) > 100 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File is too large. Max size is 100MB.")
+    with open(save_path, "wb") as f:
+        f.write(content)
+
+    preview_payload = build_preview_payload(content, filename)
+    model_input_path = save_path
+    if suffix == ".dcm":
+        preview_b64 = preview_payload.get("preview", "")
+        if not preview_b64:
+            raise HTTPException(status_code=400, detail="Could not convert DICOM to a model-readable preview image.")
+        model_input_path = UPLOAD_DIR / f"{task_id}_preview.png"
+        with open(model_input_path, "wb") as f:
+            f.write(base64.b64decode(preview_b64))
+
+    try:
+        segmentation = segmentation_registry.analyze(model_id, model_input_path, threshold=threshold)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Segmentation analysis failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    body_part = analyzer.detect_body_part(filename, {})
+    detection = _build_segmentation_detection(segmentation, body_part=body_part)
+    width = preview_payload.get("width") or 0
+    height = preview_payload.get("height") or 0
+    properties = {
+        "width": width,
+        "height": height,
+        "image_quality": "segmentation-ready" if preview_payload.get("success") else "preview unavailable",
+    }
+    result = {
+        "success": bool(segmentation.get("success")),
+        "task_id": task_id,
+        "filename": filename,
+        "file_type": suffix.lstrip(".").upper() or "Unknown",
+        "body_part": body_part,
+        "analysis_time": round(float(segmentation.get("inference_time_ms", 0)) / 1000.0, 2),
+        "properties": properties,
+        "detection": detection,
+        "ai_report": _build_segmentation_ai_report(detection, segmentation),
+        "thumbnail": preview_payload.get("preview", ""),
+        "segmentation": segmentation,
+        "segmentation_overlay": segmentation.get("overlay", ""),
+        "segmentation_mask": segmentation.get("mask", ""),
+        "segmentation_probability": segmentation.get("probability", ""),
+        "metadata": {
+            "model_id": segmentation.get("model_id", model_id),
+            "model_name": segmentation.get("model_name", ""),
+            "architecture": segmentation.get("architecture", ""),
+            "training_type": segmentation.get("training_type", ""),
+        },
+        "upload_time": datetime.now().isoformat(),
+        "engine": f"本地分割模型 - {segmentation.get('model_name', model_id)}",
+    }
+
+    analysis_records[task_id] = result
+    result_path = RESULT_DIR / f"{task_id}.json"
+    result_copy = {k: v for k, v in result.items() if k != "thumbnail"}
+    with open(result_path, "w", encoding="utf-8") as f:
+        json.dump(result_copy, f, ensure_ascii=False, indent=2)
+
+    status_code = 200 if result["success"] else 500
+    return JSONResponse(status_code=status_code, content=result)
+
+
 @app.get("/api/agent/unet/status")
 async def get_unet_agent_status():
     """Get local U-Net segmentation agent status."""
@@ -1647,7 +1911,8 @@ async def analyze_with_unet(
     if not unet_agent:
         raise HTTPException(status_code=503, detail="U-Net agent module is unavailable.")
 
-    suffix = Path(file.filename).suffix.lower()
+    filename = file.filename or "uploaded_image"
+    suffix = Path(filename).suffix.lower()
     if suffix not in OpenAIVisionAnalyzer.SUPPORTED_FORMATS:
         raise HTTPException(status_code=400, detail=f"Unsupported file format: {suffix}")
 
@@ -1658,7 +1923,7 @@ async def analyze_with_unet(
         f.write(content)
 
     segmentation = unet_agent.analyze_file(save_path, threshold=threshold)
-    llm_report = generate_unet_llm_report(task_id, file.filename, segmentation)
+    llm_report = generate_unet_llm_report(task_id, filename, segmentation)
     metrics = segmentation.get("metrics", {}) if segmentation.get("success") else {}
     detection = {
         "risk_level": metrics.get("risk_level", "low"),
@@ -1688,7 +1953,7 @@ async def analyze_with_unet(
     return JSONResponse(content={
         "success": segmentation.get("success", False),
         "task_id": task_id,
-        "filename": file.filename,
+        "filename": filename,
         "detection": detection,
         "ai_report": llm_report.get("report", segmentation.get("report", "")),
         "llm_report": llm_report,
@@ -1703,7 +1968,7 @@ async def analyze_with_unet(
 # ----- 文件监控 API -----
 
 @app.post("/api/agent/watcher/start")
-async def start_file_watcher(watch_dir: str = None):
+async def start_file_watcher(watch_dir: Optional[str] = None):
     """启动文件监控"""
     orchestrator = get_orchestrator()
     if not orchestrator:
@@ -1756,18 +2021,29 @@ async def analyze_watched_file(file_path: str):
 
 @app.post("/api/agent/dialogue/message")
 async def send_dialogue_message(
-    user_input: str,
-    conv_id: str = None
+    payload: Optional[Dict[str, Any]] = Body(default=None),
+    user_input: Optional[str] = None,
+    conv_id: Optional[str] = None
 ):
     """发送对话消息"""
+    if payload:
+        user_input = payload.get("user_input", user_input)
+        conv_id = payload.get("conv_id", conv_id)
+
+    if not user_input or not str(user_input).strip():
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "message is required"},
+        )
+
     orchestrator = get_orchestrator()
     if not orchestrator:
-        return {"error": "智能体系统未初始化"}
-    return orchestrator.send_message(user_input, conv_id)
+        return {"success": False, "error": "智能体系统未初始化"}
+    return orchestrator.send_message(str(user_input).strip(), conv_id)
 
 
 @app.post("/api/agent/dialogue/conversation")
-async def create_conversation(title: str = None):
+async def create_conversation(title: Optional[str] = None):
     """创建新对话"""
     orchestrator = get_orchestrator()
     if not orchestrator:
@@ -1778,7 +2054,7 @@ async def create_conversation(title: str = None):
 
 @app.get("/api/agent/dialogue/history")
 async def get_dialogue_history(
-    conv_id: str = None,
+    conv_id: Optional[str] = None,
     limit: int = 20
 ):
     """获取对话历史"""
@@ -1821,8 +2097,8 @@ async def clear_dialogue_context():
 
 @app.post("/api/agent/plan/create")
 async def create_plan(
-    body_part: str = None,
-    custom_steps: List[Dict] = None
+    body_part: Optional[str] = None,
+    custom_steps: Optional[List[Dict]] = None
 ):
     """创建分析计划"""
     orchestrator = get_orchestrator()
@@ -1835,7 +2111,7 @@ async def create_plan(
 @app.post("/api/agent/plan/execute")
 async def execute_plan(
     plan_id: str,
-    context: Dict = None
+    context: Optional[Dict] = None
 ):
     """执行分析计划"""
     orchestrator = get_orchestrator()

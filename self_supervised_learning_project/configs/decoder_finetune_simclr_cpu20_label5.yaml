@@ -1,0 +1,29 @@
+project:
+  seed: 42
+  output_dir: runs/decoder_finetune_simclr_cpu20_label5
+
+data:
+  root: ../Dataset
+  train_split: train
+  val_split: val
+  image_dir_name: images
+  label_dir_name: labels
+  image_channels: 1
+  image_size: 128
+  batch_size: 8
+  num_workers: 0
+  train_fraction: 0.05
+  subset_seed: 42
+
+model:
+  backbone: resnet18
+  checkpoint: runs/simclr_medical_cpu50/best.pt
+  freeze_encoder: false
+
+training:
+  epochs: 20
+  encoder_lr: 0.0001
+  decoder_lr: 0.001
+  weight_decay: 0.0001
+  dice_weight: 1.0
+  threshold: 0.5

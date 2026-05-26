@@ -1,0 +1,28 @@
+{
+  "include": [
+    "*.py",
+    "scripts/**/*.py"
+  ],
+  "exclude": [
+    "__pycache__",
+    "runs"
+  ],
+  "venvPath": "..",
+  "venv": ".venv312",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows",
+  "typeCheckingMode": "basic",
+  "reportPrivateImportUsage": "none",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "pythonVersion": "3.12",
+      "pythonPlatform": "Windows",
+      "extraPaths": [
+        ".",
+        "..\\.venv312\\Lib\\site-packages",
+        "C:\\Users\\23169\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages"
+      ]
+    }
+  ]
+}

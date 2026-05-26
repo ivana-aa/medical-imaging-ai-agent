@@ -19,7 +19,7 @@ class ConnectionManager:
         self.active_connections: List[Dict] = []
         self._lock = threading.RLock()
 
-    async def connect(self, websocket, client_id: str = None) -> str:
+    async def connect(self, websocket, client_id: Optional[str] = None) -> str:
         """接受WebSocket连接"""
         await websocket.accept()
         
@@ -118,7 +118,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def websocket_endpoint(websocket, client_id: str = None):
+async def websocket_endpoint(websocket, client_id: Optional[str] = None):
     """
     WebSocket端点处理函数
     

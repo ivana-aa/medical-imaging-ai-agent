@@ -1,0 +1,30 @@
+{
+  "source": "D:\\hz\\runs\\unet_agent_seed_stability\\seed_011\\best_threshold.json",
+  "best_threshold": 0.36,
+  "validation_best_threshold": 0.16,
+  "deployment_threshold": 0.36,
+  "deployment_threshold_reason": "Recall-safe deployment threshold. Compared with 0.40, validation FN drops from 33163 to 29579 with only about 0.001 global Dice loss; test FN also drops from 33339 to 29868.",
+  "baseline_val_dice": 0.9355762317067101,
+  "val_dice": 0.9406672091711135,
+  "val_iou": 0.894032098944225,
+  "deployment_val_mean_dice": 0.937972,
+  "deployment_val_global_dice": 0.951318,
+  "deployment_val_mean_iou": 0.898441,
+  "deployment_val_global_iou": 0.907156,
+  "deployment_val_sweep": "D:\\hz\\runs\\unet_agent_current\\val_visual_qa_threshold_sweep.csv",
+  "test_dice": 0.9463887772862873,
+  "test_iou": 0.9001831279860603,
+  "deployment_test_mean_dice": 0.956154,
+  "deployment_test_global_dice": 0.954452,
+  "deployment_test_mean_iou": 0.91761,
+  "deployment_test_global_iou": 0.912872,
+  "deployment_test_sweep": "D:\\hz\\runs\\unet_agent_current\\test_visual_qa_threshold_sweep.csv",
+  "postprocess": {
+    "enabled": true,
+    "close_iters": 0,
+    "open_iters": 1,
+    "fill_holes": false,
+    "min_area": 0,
+    "min_area_ratio": 0.0
+  }
+}

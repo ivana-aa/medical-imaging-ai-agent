@@ -36,7 +36,14 @@ class AgentMessage:
     metadata: Dict = field(default_factory=dict)
 
     @classmethod
-    def create(cls, from_agent: str, to_agent: str, msg_type: str, content: Any, metadata: Dict = None) -> 'AgentMessage':
+    def create(
+        cls,
+        from_agent: str,
+        to_agent: str,
+        msg_type: str,
+        content: Any,
+        metadata: Optional[Dict] = None,
+    ) -> 'AgentMessage':
         return cls(
             from_agent=from_agent,
             to_agent=to_agent,
@@ -139,7 +146,7 @@ class AgentOrchestrator:
 
     # ==================== 文件监控智能体接口 ====================
     
-    def start_file_watching(self, watch_dir: str = None) -> Dict:
+    def start_file_watching(self, watch_dir: Optional[str] = None) -> Dict:
         """启动文件监控"""
         watcher = self.agents['file_watcher']
         
@@ -183,16 +190,16 @@ class AgentOrchestrator:
 
     # ==================== 对话智能体接口 ====================
 
-    def send_message(self, user_input: str, conv_id: str = None) -> Dict:
+    def send_message(self, user_input: str, conv_id: Optional[str] = None) -> Dict:
         """发送消息并获取回复"""
         result = self.agents['dialogue'].process_user_message(user_input, conv_id)
         return result
 
-    def create_conversation(self, title: str = None) -> str:
+    def create_conversation(self, title: Optional[str] = None) -> str:
         """创建新对话"""
         return self.agents['dialogue'].create_conversation(title)
 
-    def get_conversation_history(self, conv_id: str = None, limit: int = 20) -> List[Dict]:
+    def get_conversation_history(self, conv_id: Optional[str] = None, limit: int = 20) -> List[Dict]:
         """获取对话历史"""
         return self.agents['dialogue'].get_conversation_history(conv_id, limit)
 
@@ -212,8 +219,8 @@ class AgentOrchestrator:
 
     def create_analysis_plan(
         self, 
-        body_part: str = None,
-        custom_steps: List[Dict] = None
+        body_part: Optional[str] = None,
+        custom_steps: Optional[List[Dict]] = None
     ) -> str:
         """创建分析计划"""
         # 根据部位选择工作流
@@ -234,7 +241,7 @@ class AgentOrchestrator:
         
         return plan_id
 
-    def execute_plan(self, plan_id: str, context: Dict = None) -> Dict:
+    def execute_plan(self, plan_id: str, context: Optional[Dict] = None) -> Dict:
         """执行分析计划"""
         return self.agents['planner'].execute_plan(plan_id, context)
 
@@ -352,7 +359,7 @@ class AgentOrchestrator:
 
     # ==================== 组合操作 ====================
 
-    def start_full_analysis(self, file_path: str, filename: str, body_part: str = None) -> Dict:
+    def start_full_analysis(self, file_path: str, filename: str, body_part: Optional[str] = None) -> Dict:
         """
         完整的分析流程
         1. 创建分析计划

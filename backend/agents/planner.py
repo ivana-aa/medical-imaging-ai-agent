@@ -57,7 +57,7 @@ class Task:
         name: str, 
         description: str = "",
         priority: int = 2,
-        dependencies: List[str] = None
+        dependencies: Optional[List[str]] = None
     ) -> 'Task':
         return cls(
             id=str(uuid.uuid4()),
@@ -185,8 +185,8 @@ class PlannerAgent:
         self, 
         name: str, 
         description: str = "",
-        workflow_key: str = None,
-        custom_steps: List[Dict] = None
+        workflow_key: Optional[str] = None,
+        custom_steps: Optional[List[Dict]] = None
     ) -> str:
         """
         创建执行计划
@@ -239,7 +239,7 @@ class PlannerAgent:
     def execute_plan(
         self, 
         plan_id: str, 
-        context: Dict = None,
+        context: Optional[Dict] = None,
         parallel: bool = True
     ) -> Dict:
         """

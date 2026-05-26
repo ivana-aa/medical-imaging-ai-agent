@@ -1,0 +1,38 @@
+project:
+  seed: 42
+  output_dir: runs/simclr_medical_cpu20
+
+data:
+  root: ../Dataset
+  train_split: train
+  image_dir_name: images
+  image_channels: 1
+  image_size: 128
+  batch_size: 16
+  num_workers: 0
+
+augment:
+  crop_scale: [0.60, 1.0]
+  horizontal_flip_p: 0.5
+  vertical_flip_p: 0.5
+  color_jitter_p: 0.8
+  brightness: 0.25
+  contrast: 0.25
+  saturation: 0.0
+  hue: 0.0
+  gaussian_blur_p: 0.25
+
+model:
+  backbone: resnet18
+  projection_hidden_dim: 512
+  projection_dim: 128
+
+training:
+  epochs: 20
+  lr: 0.0003
+  weight_decay: 0.0001
+  temperature: 0.2
+  optimizer: adamw
+  scheduler: cosine
+  save_every: 5
+  log_interval: 10

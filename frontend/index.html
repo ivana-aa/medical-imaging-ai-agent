@@ -216,6 +216,32 @@
       font-size: 14px; cursor: pointer; outline: none;
     }
     .option-select:focus { border-color: var(--primary-light); }
+    .model-info-panel {
+      margin-top: 14px;
+      padding: 14px 16px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .model-info-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+    .model-info-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+    .model-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .model-metric {
+      padding: 8px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .model-metric-label { font-size: 11px; color: var(--text-muted); }
+    .model-metric-value { font-size: 14px; color: var(--accent); font-weight: 600; margin-top: 2px; }
     .sensitivity-slider { width: 100%; margin-top: 4px; }
     input[type="range"] {
       -webkit-appearance: none; width: 100%; height: 4px;
@@ -676,6 +702,7 @@
       }
       .stats-grid { grid-template-columns: 1fr 1fr; }
       .analysis-options { grid-template-columns: 1fr; }
+      .model-info-panel { grid-template-columns: 1fr; }
       .fit-summary-grid { grid-template-columns: 1fr 1fr; }
     }
 
@@ -734,7 +761,6 @@
     <button class="nav-btn" data-page="analyze" onclick="switchPage('analyze')">🔬 影像分析</button>
     <button class="nav-btn" data-page="history" onclick="switchPage('history')">📋 历史记录</button>
     <button class="nav-btn" data-page="stats" onclick="switchPage('stats')">📈 统计报表</button>
-    <button class="nav-btn" data-page="agents" onclick="switchPage('agents')">🧠 智能体</button>
     <button class="nav-btn" data-page="dialogue" onclick="switchPage('dialogue')">💬 对话</button>
   </div>
   <div class="navbar-right">
@@ -763,24 +789,8 @@
       <div class="sidebar-item" data-page="stats" onclick="switchPage('stats')">
         <span class="icon">📈</span> 统计报表
       </div>
-      <div class="sidebar-item" data-page="agents" onclick="switchPage('agents')">
-        <span class="icon">🧠</span> 智能体状态
-      </div>
       <div class="sidebar-item" data-page="dialogue" onclick="switchPage('dialogue')">
         <span class="icon">💬</span> AI对话
-      </div>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-label">影像类型</div>
-      <div class="sidebar-item" onclick="filterByBodyPart('chest')">
-        <span class="icon">🫁</span> 胸部影像
-      </div>
-      <div class="sidebar-item" onclick="filterByBodyPart('brain')">
-        <span class="icon">🧠</span> 颅脑影像
-      </div>
-      <div class="sidebar-item" onclick="filterByBodyPart('abdomen')">
-        <span class="icon">🔍</span> 腹部影像
       </div>
     </div>
 
@@ -791,7 +801,6 @@
         <div>📡 API状态：<span id="apiStatus">检测中…</span></div>
         <div>🖼️ 支持格式：DCM/JPG/PNG</div>
         <div>📏 最大文件：100MB</div>
-        <div style="margin-top:8px;">🤖 智能体：<span id="agentStatus">离线</span></div>
         <div>💬 对话：<span id="dialogueStatus">未连接</span></div>
       </div>
     </div>
@@ -943,6 +952,25 @@
             <div class="option-label">AI检测灵敏度：<span id="sensitivityLabel" style="color:var(--accent)">75%</span></div>
             <input type="range" id="sensitivitySlider" min="10" max="100" value="75"
                    oninput="document.getElementById('sensitivityLabel').textContent=this.value+'%'">
+          </div>
+          <div class="option-group">
+            <div class="option-label">分割模型</div>
+            <select class="option-select" id="segmentationModelSelect" onchange="handleSegmentationModelChange()">
+              <option value="ssl_current">当前自监督集成模型</option>
+              <option value="attention_unet">注意力 U-Net</option>
+              <option value="original_unet">初始 U-Net</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="model-info-panel" id="segmentationModelPanel">
+          <div>
+            <div class="model-info-title" id="segmentationModelTitle">当前自监督集成模型</div>
+            <div class="model-info-desc" id="segmentationModelDesc">正在读取本地模型列表...</div>
+          </div>
+          <div class="model-metrics" id="segmentationModelMetrics">
+            <div class="model-metric"><div class="model-metric-label">测试 Dice</div><div class="model-metric-value">0.92074</div></div>
+            <div class="model-metric"><div class="model-metric-label">阈值</div><div class="model-metric-value">0.335</div></div>
           </div>
         </div>
 
@@ -1203,107 +1231,6 @@
       </div>
     </div>
 
-    <!-- 智能体状态页 -->
-    <div id="page-agents" class="page">
-      <div class="section-header">
-        <div class="section-title">🧠 智能体系统状态</div>
-        <button class="btn btn-secondary btn-sm" onclick="loadAgentStatus()">🔄 刷新</button>
-      </div>
-
-      <!-- 智能体卡片 -->
-      <div class="stats-grid">
-        <div class="stat-card blue">
-          <div class="stat-icon">📁</div>
-          <div class="stat-value" id="agent-watcher-state">-</div>
-          <div class="stat-label">文件监控</div>
-          <div class="stat-change" id="agent-watcher-files">待处理: 0</div>
-        </div>
-        <div class="stat-card green">
-          <div class="stat-icon">💬</div>
-          <div class="stat-value" id="agent-dialogue-count">0</div>
-          <div class="stat-label">对话会话</div>
-          <div class="stat-change" id="agent-dialogue-active">活跃: 0</div>
-        </div>
-        <div class="stat-card orange">
-          <div class="stat-icon">📋</div>
-          <div class="stat-value" id="agent-plan-count">0</div>
-          <div class="stat-label">执行计划</div>
-          <div class="stat-change" id="agent-plan-running">运行中: 0</div>
-        </div>
-        <div class="stat-card red">
-          <div class="stat-icon">🔌</div>
-          <div class="stat-value" id="agent-ws-connections">0</div>
-          <div class="stat-label">WebSocket连接</div>
-          <div class="stat-change" id="agent-ws-status">未连接</div>
-        </div>
-      </div>
-
-      <!-- 文件监控控制 -->
-      <div class="upload-section">
-        <div class="upload-title">📁 文件夹监控</div>
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <div style="flex:1;min-width:200px;">
-            <div class="option-label">监控目录</div>
-            <input type="text" id="watchDirInput" class="option-select" 
-                   value="backend/watched_folders" placeholder="输入监控目录路径">
-          </div>
-          <div style="display:flex;gap:8px;align-items:flex-end;">
-            <button class="btn btn-primary" id="watcherToggleBtn" onclick="toggleWatcher()">
-              ▶️ 启动监控
-            </button>
-            <button class="btn btn-secondary" onclick="openWatchFolder()">
-              📂 打开目录
-            </button>
-          </div>
-        </div>
-        <div class="highlight-box highlight-info" style="margin-top:12px;">
-          <div style="font-size:12px;color:var(--text-secondary);">
-            💡 将医学影像文件放入监控目录，系统将自动进行分析并推送结果
-          </div>
-        </div>
-      </div>
-
-      <!-- 智能体能力展示 -->
-      <div class="charts-grid">
-        <div class="chart-card">
-          <div class="chart-title">📁 FileWatcher 文件监控</div>
-          <div style="margin-top:12px;font-size:12px;color:var(--text-secondary);">
-            <p>• 实时监控指定文件夹</p>
-            <p>• 自动识别医学影像格式</p>
-            <p>• 新文件自动触发分析</p>
-            <p>• WebSocket实时推送结果</p>
-          </div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title">💬 Dialogue 对话智能体</div>
-          <div style="margin-top:12px;font-size:12px;color:var(--text-secondary);">
-            <p>• 多轮对话上下文记忆</p>
-            <p>• 关联当前分析结果</p>
-            <p>• 智能问答和建议</p>
-            <p>• 对话历史持久化</p>
-          </div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title">📋 Planner 任务规划</div>
-          <div style="margin-top:12px;font-size:12px;color:var(--text-secondary);">
-            <p>• 复杂问题智能拆解</p>
-            <p>• 多步骤任务编排</p>
-            <p>• 执行状态实时追踪</p>
-            <p>• 结果聚合输出</p>
-          </div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title">🔌 WebSocket 实时通信</div>
-          <div style="margin-top:12px;font-size:12px;color:var(--text-secondary);">
-            <p>• 双向实时通信</p>
-            <p>• 自动重连机制</p>
-            <p>• 事件驱动推送</p>
-            <p>• 多客户端支持</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 对话页面 -->
     <div id="page-dialogue" class="page">
       <div class="section-header">
@@ -1420,13 +1347,15 @@
   let activeResultView = 'overlay';
   let filePreviewRequestId = 0;
   let fitMonitorData = null;
+  let segmentationModels = [];
+  let selectedSegmentationModel = 'ssl_current';
 
   // ==================== 初始化 ====================
   document.addEventListener('DOMContentLoaded', () => {
     checkApiStatus();
     loadStats();
     loadHistory();
-    loadAgentStatus();
+    loadSegmentationModels();
     setupDragDrop();
     setInterval(checkApiStatus, 30000);
   });
@@ -1451,6 +1380,74 @@
   }
 
   // ==================== 页面切换 ====================
+  async function loadSegmentationModels() {
+    try {
+      const res = await fetch(`${API_BASE}/api/segmentation/models`, { signal: AbortSignal.timeout(8000) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || data.detail || 'model registry unavailable');
+      segmentationModels = Array.isArray(data.models) ? data.models : [];
+      renderSegmentationModelSelect();
+      renderSegmentationModelPanel();
+    } catch (e) {
+      console.warn('本地分割模型列表不可用:', e);
+      segmentationModels = [
+        { model_id: 'ssl_current', model_name: '当前自监督集成模型', architecture: 'ResNet-UNet 集成', training_type: '自监督 + 10% 标签 hard-mining 微调', threshold: 0.335, test_metrics: { dice: 0.92074, iou: 0.86022 }, available: false, last_error: e.message || String(e) },
+        { model_id: 'attention_unet', model_name: '注意力 U-Net', architecture: 'Attention U-Net', training_type: '监督学习', threshold: 0.23, test_metrics: { dice: 0.95580, iou: 0.91630 }, available: false },
+        { model_id: 'original_unet', model_name: '初始 U-Net', architecture: 'U-Net', training_type: '监督学习基线', threshold: 0.36, test_metrics: { dice: 0.94581, iou: 0.89933, precision: 0.94949, recall: 0.94365 }, available: false }
+      ];
+      renderSegmentationModelSelect();
+      renderSegmentationModelPanel();
+    }
+  }
+
+  function getSelectedSegmentationModel() {
+    return segmentationModels.find(model => model.model_id === selectedSegmentationModel)
+      || segmentationModels[0]
+      || null;
+  }
+
+  function renderSegmentationModelSelect() {
+    const select = document.getElementById('segmentationModelSelect');
+    if (!select || !segmentationModels.length) return;
+    select.innerHTML = segmentationModels.map(model => {
+      const available = model.available === false ? '（不可用）' : '';
+      return `<option value="${escapeHtml(model.model_id)}">${escapeHtml(model.model_name || model.model_id)}${available}</option>`;
+    }).join('');
+    if (!segmentationModels.some(model => model.model_id === selectedSegmentationModel)) {
+      selectedSegmentationModel = segmentationModels[0].model_id;
+    }
+    select.value = selectedSegmentationModel;
+  }
+
+  function handleSegmentationModelChange() {
+    const select = document.getElementById('segmentationModelSelect');
+    selectedSegmentationModel = select?.value || 'ssl_current';
+    renderSegmentationModelPanel();
+  }
+
+  function renderSegmentationModelPanel() {
+    const model = getSelectedSegmentationModel();
+    if (!model) return;
+    const title = document.getElementById('segmentationModelTitle');
+    const desc = document.getElementById('segmentationModelDesc');
+    const metrics = document.getElementById('segmentationModelMetrics');
+    if (title) title.textContent = model.model_name || model.model_id;
+    if (desc) {
+      const availability = model.available === false
+        ? `不可用：${model.last_error || '模型权重未就绪'}`
+        : `已就绪：${model.device || '本地设备'}`;
+      desc.textContent = `${model.architecture || '-'} / ${model.training_type || '-'} / ${availability}`;
+    }
+    if (metrics) {
+      const test = model.test_metrics || {};
+      metrics.innerHTML = `
+        <div class="model-metric"><div class="model-metric-label">测试 Dice</div><div class="model-metric-value">${fmtMetric(test.dice || test.test_dice, 5)}</div></div>
+        <div class="model-metric"><div class="model-metric-label">测试 IoU</div><div class="model-metric-value">${fmtMetric(test.iou || test.test_iou, 5)}</div></div>
+        <div class="model-metric"><div class="model-metric-label">阈值</div><div class="model-metric-value">${fmtMetric(model.threshold, 3)}</div></div>
+        <div class="model-metric"><div class="model-metric-label">加载状态</div><div class="model-metric-value">${model.loaded ? '已加载' : '按需加载'}</div></div>`;
+    }
+  }
+
   function switchPage(name) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-btn, .sidebar-item[data-page]').forEach(item => item.classList.remove('active'));
@@ -1587,8 +1584,9 @@
   }
 
   async function performAnalysis(file, isDemo) {
-    const analysisType = document.getElementById('analysisType').value;
-    const sensitivity = document.getElementById('sensitivitySlider')?.value || 0.75;
+    const select = document.getElementById('segmentationModelSelect');
+    const modelId = select?.value || selectedSegmentationModel || 'ssl_current';
+    selectedSegmentationModel = modelId;
     const btn = document.getElementById('analyzeBtn');
     showProgress(true);
     animateProgress();
@@ -1597,9 +1595,8 @@
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('analysis_type', analysisType);
-      formData.append('sensitivity', sensitivity);
-      const res = await fetch(`${API_BASE}/api/upload-and-analyze`, {
+      formData.append('model_id', modelId);
+      const res = await fetch(`${API_BASE}/api/segmentation/analyze`, {
         method: 'POST',
         body: formData
       });
@@ -1695,9 +1692,9 @@
     document.getElementById('metaBodyPart').textContent = bodyPartCn;
     document.getElementById('metaTime').textContent = (data.analysis_time || 0) + 's';
     document.getElementById('metaQuality').textContent = data.properties?.image_quality || '-';
-    const unet = data.detection?.unet_segmentation;
+    const unet = data.detection?.segmentation_model || data.detection?.unet_segmentation;
     document.getElementById('metaSegmentation').textContent = unet
-      ? `${unet.area_percent || 0}% / p=${Number(unet.mean_probability || 0).toFixed(3)}`
+      ? `${unet.model_name || '分割模型'} | 面积 ${unet.area_percent || 0}% | 概率=${Number(unet.mean_probability || 0).toFixed(3)} | 阈值=${Number(unet.threshold || 0).toFixed(3)} | ${Number(unet.inference_time_ms || 0).toFixed(0)}ms`
       : '未加载';
 
     const det = data.detection || {};
@@ -1734,6 +1731,15 @@
 
     const grid = document.getElementById('findingsGrid');
     grid.innerHTML = '';
+    if (unet) {
+      grid.innerHTML += `
+        <div class="finding-item">
+          <div class="finding-name">${escapeHtml(unet.model_name || '分割模型')}</div>
+          <div class="finding-detail">面积占比：${escapeHtml(unet.area_percent || 0)}%</div>
+          <div class="finding-detail">平均概率：${Number(unet.mean_probability || 0).toFixed(4)} / 最大概率：${Number(unet.max_probability || 0).toFixed(4)}</div>
+          <div class="finding-detail">阈值：${Number(unet.threshold || 0).toFixed(4)} / 推理耗时：${Number(unet.inference_time_ms || 0).toFixed(0)}ms</div>
+        </div>`;
+    }
     if (det.has_significant_finding && det.primary_finding) {
       const f = det.primary_finding;
       grid.innerHTML += `
@@ -1899,14 +1905,6 @@
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     loadHistory();
-  }
-
-  function filterByBodyPart(part) {
-    switchPage('history');
-    setTimeout(() => {
-      const records = Object.values(window._cachedRecords || {})
-        .filter(r => r.body_part === part);
-    }, 100);
   }
 
   async function deleteRecord(taskId) {
@@ -2387,8 +2385,6 @@
       
       ws.onopen = () => {
         wsConnected = true;
-        document.getElementById('agent-ws-status').textContent = '已连接';
-        document.getElementById('agent-ws-connections').textContent = '1';
         document.getElementById('dialogueStatus').textContent = '已连接';
         console.log('WebSocket连接已建立');
       };
@@ -2405,8 +2401,6 @@
       ws.onclose = () => {
         wsConnected = false;
         ws = null;
-        document.getElementById('agent-ws-status').textContent = '重连中';
-        document.getElementById('agent-ws-connections').textContent = '0';
         document.getElementById('dialogueStatus').textContent = '重连中';
         // 自动重连
         wsReconnectTimer = setTimeout(initWebSocket, 3000);
@@ -2437,10 +2431,8 @@
       case 'file_event':
         if (msg.data?.type === 'new_file_detected') {
           showToast(`发现新文件: ${msg.data.file?.name}`, 'info');
-          loadAgentStatus();
         } else if (msg.data?.type === 'processing_completed') {
           showToast(`文件分析完成: ${msg.data.file?.name}`, 'success');
-          loadAgentStatus();
           loadHistory();
         }
         break;
@@ -2449,104 +2441,7 @@
         // 对话回复由独立函数处理
         break;
         
-      case 'agent_status':
-        updateAgentUI(msg.data);
-        break;
     }
-  }
-
-  // 加载智能体状态
-  async function loadAgentStatus() {
-    try {
-      const res = await fetch(`${API_BASE}/api/agent/status`);
-      const data = await res.json();
-      
-      if (data.error) {
-        document.getElementById('agentStatus').textContent = '未初始化';
-        return;
-      }
-      
-      document.getElementById('agentStatus').textContent = '在线';
-      
-      // 更新文件监控状态
-      const watcher = data.file_watcher || {};
-      document.getElementById('agent-watcher-state').textContent = 
-        watcher.state === 'running' ? '运行中' : '已停止';
-      document.getElementById('agent-watcher-files').textContent = 
-        `待处理: ${watcher.pending_count || 0}`;
-      watcherRunning = watcher.state === 'running';
-      updateWatcherButton();
-      
-      // 更新对话状态
-      const dialogue = data.dialogue || {};
-      document.getElementById('agent-dialogue-count').textContent = dialogue.total_conversations || 0;
-      document.getElementById('agent-dialogue-active').textContent = 
-        dialogue.has_analysis_context ? '有上下文' : '无上下文';
-      
-      // 更新规划状态
-      const planner = data.planner || {};
-      document.getElementById('agent-plan-count').textContent = planner.total_plans || 0;
-      
-      // 更新WebSocket连接数
-      const wsCount = data.orchestrator?.websocket_connections || 0;
-      document.getElementById('agent-ws-connections').textContent = wsCount;
-      const websocketReady = wsConnected || wsCount > 0;
-      document.getElementById('agent-ws-status').textContent =
-        websocketReady ? '已连接' : '未连接';
-      document.getElementById('dialogueStatus').textContent =
-        websocketReady ? '已连接' : '未连接';
-      
-    } catch (e) {
-      console.error('加载智能体状态失败:', e);
-      document.getElementById('agentStatus').textContent = '离线';
-    }
-  }
-
-  // 切换文件监控
-  async function toggleWatcher() {
-    const btn = document.getElementById('watcherToggleBtn');
-    const watchDir = document.getElementById('watchDirInput').value;
-    
-    try {
-      if (watcherRunning) {
-        await fetch(`${API_BASE}/api/agent/watcher/stop`, { method: 'POST' });
-        showToast('文件监控已停止', 'info');
-      } else {
-        await fetch(`${API_BASE}/api/agent/watcher/start`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ watch_dir: watchDir })
-        });
-        showToast('文件监控已启动', 'success');
-      }
-      watcherRunning = !watcherRunning;
-      updateWatcherButton();
-      loadAgentStatus();
-    } catch (e) {
-      showToast('操作失败: ' + e.message, 'error');
-    }
-  }
-
-  function updateWatcherButton() {
-    const btn = document.getElementById('watcherToggleBtn');
-    if (watcherRunning) {
-      btn.textContent = '⏸️ 停止监控';
-      btn.className = 'btn btn-danger';
-    } else {
-      btn.textContent = '▶️ 启动监控';
-      btn.className = 'btn btn-primary';
-    }
-  }
-
-  function openWatchFolder() {
-    showToast('请手动打开 backend/watched_folders 目录放入影像文件', 'info');
-  }
-
-  // 更新智能体UI
-  function updateAgentUI(data) {
-    if (!data) return;
-    // 根据实际数据结构更新UI
-    loadAgentStatus();
   }
 
   // ==================== 对话功能 ====================
@@ -2754,9 +2649,7 @@
   switchPage = function(name) {
     originalSwitchPage(name);
     
-    if (name === 'agents') {
-      loadAgentStatus();
-    } else if (name === 'dialogue') {
+    if (name === 'dialogue') {
       loadConversationList();
       if (!currentConversationId) {
         newConversation();
@@ -2772,13 +2665,6 @@
   document.addEventListener('DOMContentLoaded', () => {
     // 尝试初始化WebSocket（可能因跨域失败，不影响主功能）
     initWebSocket();
-    
-    // 定期更新智能体状态
-    setInterval(() => {
-      if (document.getElementById('page-agents').classList.contains('active')) {
-        loadAgentStatus();
-      }
-    }, 10000);
   });
 </script>
 </body>
